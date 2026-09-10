@@ -12,7 +12,7 @@ Open **http://localhost:4318**. The audience should leave understanding what dat
 
 ## 0:00–0:45 — a familiar trip
 
-The opening says **“One meeting. It cannot move.”** Alex has a flight, a client meeting at 14:00 and one hotel night.
+The opening reads **“Tomorrow in Lisbon: a client meeting at 14:00.”** Alex has a flight, a client meeting at 14:00 and one hotel night.
 
 Say: “Alex's goal is a meeting, not a flight search. The full replacement trip must be under £650. The people and inventory are fictional; the AWS calls you will see are real.”
 

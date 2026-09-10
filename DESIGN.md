@@ -188,7 +188,7 @@ Answers use 1.7 line height, the opening field 1.45, sent questions 1.6, hotel p
 
 ## Layout
 
-The application fills `100dvh`. The topbar, trip context, composer and playback dock frame independently scrolling transcript and trace regions. The preparation view is a separately scrolling page. The opening combines Alex's portrait, the LHR–LIS panorama, booked status, “One meeting. It cannot move.” the large request and the six-component rail. After sending, the trip becomes a compact two-row grid and the composer contracts so the active explanation has more space.
+The application fills `100dvh`. The topbar, trip context, composer and playback dock frame independently scrolling transcript and trace regions. The preparation view is a separately scrolling page. The opening combines Alex's portrait, the LHR–LIS panorama, booked status, the headline “Tomorrow in Lisbon: a client meeting at 14:00”, the large request and the six-component rail. After the cancellation the headline becomes “Recover the journey around a fixed 14:00 meeting”. Headlines are full sentences or clauses, never clipped two-fragment slogans. After sending, the trip becomes a compact two-row grid and the composer contracts so the active explanation has more space.
 
 | Width | Implemented layout |
 |---|---|
