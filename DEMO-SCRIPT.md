@@ -14,6 +14,8 @@ Open **http://localhost:4318**. The audience should leave understanding what dat
 
 The opening reads **“Tomorrow in Lisbon: a client meeting at 14:00.”** Alex has a flight, a client meeting at 14:00 and one hotel night.
 
+**Optional contrast (30 seconds):** switch **Semantic layer** off in the dock and send the same question. The model answers alone: no flight, no price, no policy; the evidence rail stays empty and the transcript is labelled Model only. Switch it back on and send the question again. Everything that follows is the difference the semantic layer makes.
+
 Say: “Alex's goal is a meeting, not a flight search. The full replacement trip must be under £650. The people and inventory are fictional; the AWS calls you will see are real.”
 
 Select **Reveal cancellation**. Alternatively, select 5s, 10s, 15s or 30s beside it while introducing Alex. **Cancel timer** stops the reveal.
@@ -69,7 +71,7 @@ Choose one main experiment; keep the others for questions.
 
 - **Data changes:** select **Flight availability** in the footer to sell out the preferred flight. This updates the actual fictional Aurora record and submits a fresh availability check. With the original constraints and quiet preference, the expected replacement is **ME330 + Pátio House, £564, venue arrival 13:10**. Restore the seats after explaining it.
 - **Intent changes:** select **Arrive earlier**. Conversation memory retains the budget and deadline; expected **AX102 + Pátio House, £590, venue arrival 10:55**.
-- **Preference changes:** select **Lowest complete price** or turn Memory off. Expected **AX218 + Forum Rooms, £470** when AX218 has seats.
+- **Preference changes:** select **Lowest complete price** or type “Ignore my remembered preferences”. Expected **AX218 + Forum Rooms, £470** when AX218 has seats.
 - **No feasible answer:** ask for **strictly under £450**. No complete eligible bundle fits. Onward should report that without relaxing the deadline or omitting costs.
 
 Run each comparison from the intended current constraints. Earlier/cheapest/budget instructions persist within that conversation. **New conversation** resets those constraints; remembered cross-session preferences and inventory persist.
@@ -95,4 +97,4 @@ On a projector the type stays at laptop sizes and only the layout widens; if the
 
 ### Optional memory moment (45–60 seconds)
 
-At Disambiguation, pause on Alex’s aisle preference from an actual AgentCore long-term record and shellfish declaration from Aurora. Explain that the two need different handling. The final itinerary checks the preferred seat against Aurora inventory and shows catering as unverified. Click **Window this trip**: AgentCore short-term context overrides the remembered aisle preference for this conversation. A fresh conversation still retrieves aisle. Switch **AgentCore Memory** off on a new conversation: preference influence disappears, while the explicit Aurora allergy declaration remains. No seat, meal or booking is reserved.
+At Disambiguation, pause on Alex’s aisle preference from an actual AgentCore long-term record and shellfish declaration from Aurora. Explain that the two need different handling. The final itinerary checks the preferred seat against Aurora inventory and shows catering as unverified. Click **Window this trip**: AgentCore short-term context overrides the remembered aisle preference for this conversation. A fresh conversation still retrieves aisle. Type “Ignore my remembered preferences” in a new conversation: preference influence disappears, while the explicit Aurora allergy declaration remains. No seat, meal or booking is reserved.

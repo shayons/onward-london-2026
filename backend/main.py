@@ -78,6 +78,10 @@ PHASES = {
         ('mapping', 'Policy decides before code runs', 'Cedar policies on the gateway check the confirmation, the budget, the deadline and the airline rules.', 'AgentCore Gateway policy'),
         ('tool', 'Call book_trip through AgentCore Gateway', 'One seat and one room, atomically, in the fictional Aurora inventory.', 'AgentCore Gateway → Aurora PostgreSQL')),
 }
+MODEL_ONLY = ('You are Onward, a concise British travel concierge, but on this turn you have no tools, no booking system, '
+              'no inventory data, no memory of the traveller and no policies. Answer the traveller’s request directly in 60–90 words, '
+              'two short paragraphs, no headings, lists or emojis. Do not claim to have checked availability, prices or schedules, '
+              'and do not invent flight numbers, hotel names or prices.')
 CONTRACTS = {}
 SELECTIONS = {}
 
@@ -261,6 +265,7 @@ async def run(payload):
     run_id = str(payload.get('runId', uuid.uuid4()))
     model_id = resolve_model_id(payload.get('modelId'))
     confirmed = payload.get('confirmBooking') is True
+    semantic = payload.get('semanticLayer') is not False
     if not text or len(text) > 4000 or not re.fullmatch(r'onward-[a-zA-Z0-9-]{32,80}', session):
         yield {'type': 'error', 'message': 'Enter a message of 1–4,000 characters in a valid Onward session.'}
         return
@@ -276,11 +281,29 @@ async def run(payload):
         print(json.dumps({'onward_event': result}, ensure_ascii=False), flush=True)
         return result
 
-    yield {'type': 'run', 'runId': run_id, 'sessionId': session, 'at': now(), 'mode': 'live',
+    yield {'type': 'run', 'runId': run_id, 'sessionId': session, 'at': now(), 'mode': 'live' if semantic else 'model-only', 'semanticLayer': semantic,
            'runtime': SETTINGS.get('runtimeId', 'onward_london_2026'), 'region': SETTINGS['region'],
            'gateway': SETTINGS.get('gatewayId'), 'traceId': trace_id(), 'model': model_id,
            'modelName': SELECTABLE_MODELS.get(model_id, model_id), 'data': 'Fictional travel inventory hosted on AWS'}
     try:
+        if not semantic:
+            # The comparison run: the same model, the same question, nothing prepared underneath it.
+            print(json.dumps({'onward_model_only': {'runId': run_id, 'model': model_id, 'message': text}}, ensure_ascii=False), flush=True)
+            t = time.monotonic()
+            writer = Agent(model=language_model(model_id, 1200), system_prompt=MODEL_ONLY, callback_handler=None)
+            answer, usage = '', {}
+            async for part in writer.stream_async(text):
+                if part.get('data'):
+                    answer += part['data']
+                    yield {'type': 'token', 'runId': run_id, 'text': part['data']}
+                elif 'result' in part:
+                    usage = dict(part['result'].metrics.accumulated_usage)
+            if not answer.strip():
+                raise RuntimeError('Bedrock returned no answer text.')
+            yield {'type': 'usage', 'runId': run_id, 'model': model_id, 'usage': usage}
+            yield {'type': 'answer', 'runId': run_id, 'text': answer, 'kind': 'model-only', 'grounded': False}
+            yield {'type': 'done', 'runId': run_id, 'elapsedMs': round((time.monotonic() - started) * 1000), 'at': now()}
+            return
         yield event(0, 'input', 'Understand the request', text, 'AgentCore Runtime', {'message': text, 'sessionId': session, 'confirmBooking': confirmed})
         yield event(0, 'mapping', 'Define success', 'Reach the meeting venue within the complete-trip budget.', 'Semantic contract',
                     {'goal': 'Arrival at the meeting venue', 'costScope': 'Outbound fare + checked bags + hotel nights + airport transfer'})

@@ -91,6 +91,7 @@ export const handler=awslambda.streamifyResponse(async(event,responseStream)=>{
           payload:Buffer.from(JSON.stringify({message:input.message.trim(),sessionId:input.sessionId,runId,
             ...(typeof input.memoryEnabled==='boolean'?{memoryEnabled:input.memoryEnabled}:{}),
             ...(input.confirmBooking===true?{confirmBooking:true}:{}),
+            ...(input.semanticLayer===false?{semanticLayer:false}:{}),
             ...(typeof input.modelId==='string'?{modelId:input.modelId}:{})}))}));
         for await(const chunk of result.response)stream.write(Buffer.from(chunk));
       }catch(error){

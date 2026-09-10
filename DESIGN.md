@@ -237,7 +237,7 @@ The paper composer has a fine border, a 16px radius and an accent-tinted focus-w
 
 ### Navigation and playback
 
-The Caslon wordmark anchors the topbar, followed by the section nav: Concierge, Data preparation, Architecture and Solution briefing, in DM Sans 500 at `--type-support`, with the current section on rose paper in burgundy. The topbar sits outside the workspace shell, so the nav persists on the preparation and briefing pages. Below 1000px the nav is hidden and the presenter dock carries the section links; on desktop the dock drops those duplicates and keeps Talk track and New. The main workspace retains its trace toggle and explicit mobile close action. A paper playback dock holds the segmented Presenter/Auto reveal switch, pause/resume, stepping, pace, replay, AgentCore Memory and Flight availability. The selected segment is paper on an inset stone group with burgundy text. Wide-display controls grow while keeping these actions grouped.
+The Caslon wordmark anchors the topbar, followed by the section nav: Concierge, Data preparation, Architecture and Solution briefing, in DM Sans 500 at `--type-support`, with the current section on rose paper in burgundy. The topbar sits outside the workspace shell, so the nav persists on the preparation and briefing pages. Below 1000px the nav is hidden and the presenter dock carries the section links; on desktop the dock drops those duplicates and keeps Talk track and New. The main workspace retains its trace toggle and explicit mobile close action. A paper playback dock holds the segmented Presenter/Auto reveal switch, pause/resume, stepping, pace, model, replay, the Semantic layer switch and Flight availability. The selected segment is paper on an inset stone group with burgundy text. Wide-display controls grow while keeping these actions grouped.
 
 ### Trip and hotel cards
 
@@ -289,7 +289,7 @@ Five chips, each exercising a different responsibility and producing a visibly d
 
 ### Model control
 
-The dock carries a **Model** select beside Pace, at `--type-controls`, populated from the deployed allowlist. It is presenter chrome, not a traveller-facing feature: it never grows, never takes accent colour, and changing it announces that the choice applies to the next question rather than re-running the current one.
+The dock carries a **Model** select beside Pace, at `--type-controls`, populated from the deployed allowlist. Beside it sits the **Semantic layer** switch, the paper-on-stone toggle the Memory switch used to be; off sends the next question to the model alone and the transcript labels that answer Model only in burgundy. AgentCore Memory has no switch and is always on. It is presenter chrome, not a traveller-facing feature: it never grows, never takes accent colour, and changing it announces that the choice applies to the next question rather than re-running the current one.
 
 ### Six semantic components and evidence
 

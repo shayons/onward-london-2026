@@ -116,7 +116,7 @@ button,select,b,strong{font-weight:500}
 .capability-tool strong,.capability-skills strong{display:block;font-weight:500;line-height:1.45;margin-bottom:5px}
 .capability-tool p,.capability-skills p{margin:0!important;font-size:14px!important;line-height:1.6!important;color:var(--muted)}
 .capability-skills li>span{width:28px;height:28px;border:1px solid #c9bfb3;border-radius:50%;display:grid;place-items:center;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
-.capability-boundary{max-width:78ch!important;margin-top:24px!important;padding:14px 18px;border-left:2px solid #b67982;background:rgba(243,230,228,.45);color:var(--muted)!important}
+.capability-callout{margin:18px 0 0;padding:16px 18px;border-radius:12px;background:var(--accent-soft);border:1px solid #d9b8bc;font-size:var(--type-body,16px);line-height:1.6;max-width:78ch}.capability-callout strong{color:var(--accent);font-weight:500}.assistant-message.model-only .assistant-label>span:last-child{color:var(--accent);font-weight:500}.capability-boundary{max-width:78ch!important;margin-top:24px!important;padding:14px 18px;border-left:2px solid #b67982;background:rgba(243,230,228,.45);color:var(--muted)!important}
 .capability-boundary strong{color:var(--ink)}
 @media(max-width:760px){.capability-columns{grid-template-columns:1fr;gap:30px}.capability-tool,.capability-skills li{grid-template-columns:32px minmax(0,1fr);gap:12px}}
 

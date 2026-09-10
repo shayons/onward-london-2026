@@ -64,6 +64,7 @@ async function chat(req,res){
       payload:Buffer.from(JSON.stringify({message:input.message.trim(),sessionId:input.sessionId,runId,
         ...(typeof input.memoryEnabled==='boolean'?{memoryEnabled:input.memoryEnabled}:{}),
         ...(input.confirmBooking===true?{confirmBooking:true}:{}),
+        ...(input.semanticLayer===false?{semanticLayer:false}:{}),
         ...(typeof input.modelId==='string'?{modelId:input.modelId}:{})}))}),{abortSignal:abort.signal});
     for await(const chunk of result.response){const bytes=Buffer.from(chunk);recorded.push(bytes);if(!res.destroyed)res.write(bytes);}
   }catch(error){

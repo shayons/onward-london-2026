@@ -17,8 +17,8 @@
   "memorySeedEventId": "0000001788885138385#a5bea0c7",
   "runtimeId": "onward_london_2026-Jy18RJFzmb",
   "runtimeArn": "arn:aws:bedrock-agentcore:us-east-1:619763002613:runtime/onward_london_2026-Jy18RJFzmb",
-  "runtimeVersion": "14",
-  "artifactVersion": "Mu5khr.Kq.4nUjRPluks.R5aeexccnz0",
+  "runtimeVersion": "15",
+  "artifactVersion": "6ZGduZ7TLS.rDJ5TH4sOLi1qdWJVHxpN",
   "logGroup": "/aws/bedrock-agentcore/runtimes/onward_london_2026-Jy18RJFzmb-DEFAULT",
   "seatPreferenceSeedEventId": "0000001788899650980#e4c3f163",
   "selectableModels": {

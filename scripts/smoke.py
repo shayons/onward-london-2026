@@ -41,9 +41,10 @@ def invoke(message, session_id=None, **extra):
 
 def main():
     book = '--book' in sys.argv
-    words = [arg for arg in sys.argv[1:] if arg != '--book']
+    model_only = '--model-only' in sys.argv
+    words = [arg for arg in sys.argv[1:] if arg not in ('--book', '--model-only')]
     prompt = ' '.join(words) or 'My flight has been cancelled. Get me from Heathrow to my Lisbon meeting by 2pm tomorrow, with one hotel night nearby. Keep the outbound flight, checked bag, hotel and airport transfer under £650.'
-    events, session, request = invoke(prompt)
+    events, session, request = invoke(prompt, **({'semanticLayer': False} if model_only else {}))
     if book:
         # The one-click confirmation: the browser sends confirmBooking=true; the gateway's Cedar policies decide.
         booking_events, _, booking_request = invoke('Book this itinerary for Alex.', session, confirmBooking=True)
