@@ -180,3 +180,36 @@ button,select,b,strong{font-weight:500}
 @media(max-width:900px){.memory-demo-grid{grid-template-columns:1fr}.memory-tabs{grid-template-columns:1fr 1fr}.memory-tabs button:nth-child(2){border-right:0}.memory-tabs button:nth-child(-n+2){border-bottom:1px solid var(--line)}}
 @media(max-width:900px){.memory-integration-heading{grid-template-columns:1fr}.memory-integration-heading p{grid-column:1;grid-row:auto;margin-top:13px!important}.memory-integration ol{grid-template-columns:1fr;gap:0}.memory-integration li{padding-bottom:17px}}
 @media(max-width:600px){.memory-showcase-heading{display:block}.memory-live{margin-top:12px}.memory-input{font-size:19px;padding:18px}.memory-product{grid-template-columns:1fr}.memory-product>img{height:180px;min-height:0}.memory-tabs{grid-template-columns:1fr}.memory-tabs button{border-right:0;border-bottom:1px solid var(--line)!important}.memory-tabs button:last-child{border-bottom:0!important}.memory-integration{padding:20px}.memory-integration-result{align-items:flex-start;flex-direction:column}.memory-integration-result i{padding:4px 0}}
+/* Booking under policy: the button on the itinerary, the confirmation and refusal cards, the seventh rail row, the trace link. */
+.book-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
+.book-row span{font-size:var(--type-controls,12px);color:var(--muted);max-width:46ch;line-height:1.5}
+.book-button{min-height:44px;padding:11px 18px;font-size:var(--type-support,14px);border-radius:10px}
+.book-button svg{width:16px;height:16px}
+.book-button:disabled{opacity:.42;cursor:not-allowed}
+.booking-card{margin-top:20px;padding:20px;border:1px solid #94ac9b;border-radius:16px;background:var(--paper)}
+.booking-card h3{font-family:var(--font-display);font-weight:400;font-size:26px;letter-spacing:-.02em}
+.booking-policy{margin:10px 0 6px;font-size:var(--type-support,14px);color:var(--green);line-height:1.6}
+.booking-policy strong{font-weight:500}
+.booking-refused{margin-top:20px;padding:18px 20px;border:1px solid #d9b8bc;border-radius:12px;background:var(--accent-soft);color:var(--ink)}
+.booking-refused h3{font-family:var(--font-display);font-weight:400;font-size:24px;margin-bottom:8px;color:var(--red)}
+.booking-refused p{font-size:var(--type-support,14px);line-height:1.6;color:var(--muted);margin-bottom:6px}
+.booking-refused p:first-of-type{color:var(--ink)}
+.step.refused .step-mark{color:var(--red);border-color:#c9a4aa;background:var(--accent-soft)}
+.step.refused strong{color:var(--red)}
+.layer-divider{list-style:none;padding:16px 8px 6px;font-size:var(--type-controls,12px);color:var(--subtle)}
+.layer.refused .layer-number{color:var(--red);border-color:#c9a4aa;background:var(--accent-soft)}
+.layer.refused .layer-state{color:var(--red)}
+#trace-observability{display:flex;align-items:center;gap:6px 12px;flex-wrap:wrap;margin-top:6px;font-size:var(--type-controls,12px);color:var(--muted)}
+#trace-observability:empty{display:none}
+.trace-id{font-variant-numeric:tabular-nums}
+.trace-link{display:inline-flex;align-items:center;gap:5px;color:var(--accent);text-decoration:none;min-height:24px}
+.trace-link:hover{text-decoration:underline;text-underline-offset:4px}
+.trace-link svg{width:12px;height:12px}
+.cedar-list{display:flex;flex-direction:column;gap:18px;margin-top:22px}
+.cedar-policy h3{font-family:var(--font-body);font-weight:500;letter-spacing:0;margin-bottom:6px}
+.cedar-policy h3 code{font-size:inherit}
+.cedar-policy p{max-width:72ch}
+pre.cedar{margin-top:10px;max-height:none;font-size:var(--type-controls,12px);line-height:1.7}
+.capability-tool strong code{font-size:inherit;font-family:var(--font-mono);font-weight:500}
+section>.capability-list{margin-top:18px}
+@media(max-width:600px){.book-row{align-items:flex-start;flex-direction:column}.booking-card{padding:16px}.booking-card h3{font-size:22px}}

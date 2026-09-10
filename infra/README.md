@@ -12,8 +12,14 @@ The connected demo uses Isengard account **619763002613**, region **us-east-1**.
 | AgentCore Memory | `onward_london_2026-daPhExCkem` | Alex's Onward conversations with Semantic, User Preference, Session Summary and Episodic strategies; seven-day event expiry. |
 | Neptune Analytics graph | `g-rwi3whrid6` / `onward-london-2026` | Dedicated graph, 16 m-NCUs, zero replicas. |
 | S3 bucket | `onward-london-2026-619763002613-us-east-1` | Versioned sources and deployment ZIPs, public access blocked, SSE-S3. |
-| IAM role | `OnwardLondon2026Runtime` | Scoped tool access; policy/trust JSON checked in here. |
-| CloudWatch log group | `/aws/bedrock-agentcore/runtimes/onward_london_2026-Jy18RJFzmb-DEFAULT` | Structured application events, KMS encryption, seven-day retention. |
+| AgentCore Gateway | `onward-london-2026-x3wtcgalk7` | MCP gateway with AWS IAM inbound authorisation; one Lambda target `OnwardTools` serving six tools. |
+| AgentCore Policy engine | `onward_london_2026-pqw4q83j4c` | Three Cedar policies in ENFORCE mode: `onward_read_tools` (permit the five read tools), `onward_traveller_booking` (permit book_trip with confirmation, budget and deadline), `onward_airline_rules` (forbid book_trip unless the carrier is Aster Air with a seat and seat selection). |
+| Lambda function | `onward-london-2026-tools` | Python 3.13 ARM64; the six tools over Aurora, Neptune, S3, Bedrock Titan and Memory. |
+| PostgreSQL writer | `onward_london_2026_writer` | INSERT on `bookings`, UPDATE on `offers` and `hotels`; used only by `book_trip`. |
+| Secrets Manager secret | `onward/london-2026/database-writer` | Writer credentials; never expose the value. |
+| Aurora table | `bookings` | Fictional reservations: reference, session, offer, hotel, price, policy decision, timestamp. |
+| IAM roles | `OnwardLondon2026Runtime`, `OnwardLondon2026Gateway`, `OnwardLondon2026Tools` | Runtime (Bedrock, Memory, InvokeGateway, observability), gateway (invoke the tools function), tools (scoped data access). Policy JSON checked in here. |
+| CloudWatch log group | `/aws/bedrock-agentcore/runtimes/onward_london_2026-Jy18RJFzmb-DEFAULT` | Structured application events and OpenTelemetry spans, KMS encryption, seven-day retention. Transaction Search is enabled in the account. |
 | KMS key | `dab78532-7cda-4ab3-88f8-d67b53bc1135` | Onward runtime log encryption. |
 
 The runtime and graph use IAM-authenticated public service connectivity for local development. The UI itself is loopback-only, not publicly hosted. The Bedrock US inference profile may execute model calls in other supported US regions.
@@ -36,6 +42,12 @@ uv pip install --python-platform aarch64-manylinux2014 --python-version 3.13 --t
 .venv/bin/python scripts/deploy.py
 ```
 
+Then provision the agent surface: the writer credentials and `bookings` table, the tools Lambda, the gateway and its target, the Cedar policy engine and the runtime role’s `InvokeGateway` and observability permissions. It is re-runnable and repackages the Lambda each time.
+
+```sh
+.venv/bin/python scripts/provision_gateway.py
+```
+
 The Linux ARM64 package is required for the managed runtime even when developing on macOS. Deploy uploads an immutable S3 object version and creates/updates the runtime's DEFAULT endpoint. Wait for Runtime **READY**, then:
 
 ```sh
@@ -49,7 +61,7 @@ In a second terminal:
 .venv/bin/python scripts/smoke.py
 ```
 
-For application-only backend edits, `scripts/deploy.py` copies the latest `main.py`, `services.py` and `planner.py` into the already prepared dependency package. For dependency changes, recreate the target package from the lockfile first. Frontend edits need only a browser refresh.
+For application-only backend edits, `scripts/deploy.py` copies the latest `main.py`, `services.py`, `planner.py`, `models.py` and `gateway_auth.py` into the already prepared dependency package. Tool changes go through `scripts/provision_gateway.py`, which repackages the Lambda and updates the target’s tool schema; policy changes go through the same script. For dependency changes, recreate the target package from the lockfile first. Frontend edits need only a browser refresh.
 
 **Seeding is an explicit data reset/upsert operation:** it restores fixture availability, creates new source-object versions, and refreshes embeddings/relationships. Do not run it during a live inventory-change demonstration. It does not delete or reset previously extracted long-term preferences.
 
@@ -59,13 +71,13 @@ The current application is intentionally tied to this account, region and cluste
 
 The topbar connection dialog verifies actual readiness. `.local/verification/` holds complete smoke evidence and `.local/runs/` holds received proxy SSE logs. Neither directory is served to browsers. `.impeccable/review/live/VERIFICATION.md` records the tested outcomes.
 
-The runtime uses the database reader secret. Provisioning, seeding and the proxy's fixed AX218 stock action use the existing cluster administrator secret ARN through Data API; they do not retrieve or print the secret value. The model cannot choose that write query or modify other records.
+The tools Lambda reads with the database reader secret and books with the dedicated writer secret, in one atomic statement that only inserts a booking if a seat and a room remain. Provisioning, seeding and the proxy's fixed AX218 stock action use the existing cluster administrator secret ARN through Data API; they do not retrieve or print the secret value. The model cannot choose a write query; the gateway lists six tools and its policy engine decides whether `book_trip` may run.
 
 ## Resource lifetime and retirement
 
 The **Neptune Analytics graph incurs charges while it runs**. Other retained storage/resources and AWS requests also have their normal service charges. Closing a browser or stopping `npm start` does not remove these resources. No automatic cleanup has been run, so the demo remains available.
 
-After the event, review `deployed.json` and retire only the dedicated Onward resources: runtime/endpoints, Memory, graph, versioned bucket contents and bucket, reader secret/role, isolated `onward` database, runtime IAM role, and log group. Retain logs or source evidence first if needed; remove the log encryption key only after any retained encrypted logs are no longer needed.
+After the event, review `deployed.json` and retire only the dedicated Onward resources: runtime/endpoints, the gateway and its target, the policy engine and its policies, the tools Lambda, Memory, graph, versioned bucket contents and bucket, reader and writer secrets/roles, isolated `onward` database, the three IAM roles, and log group. Retain logs or source evidence first if needed; remove the log encryption key only after any retained encrypted logs are no longer needed.
 
 **Preserve the shared `meridian-demo` cluster, its administrator secret and every other database. Preserve Counter.** Deleting the shared cluster is not Onward cleanup. Resource deletion is a separate destructive operation; this guide records its scope, it does not execute it.
 

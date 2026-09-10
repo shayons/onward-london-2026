@@ -83,6 +83,7 @@ def execution_role(published):
          'Resource': [deployed['runtimeArn'], deployed['runtimeArn'] + '/runtime-endpoint/DEFAULT']},
         {'Effect': 'Allow', 'Action': ['bedrock-agentcore:GetAgentRuntime'], 'Resource': deployed['runtimeArn']},
         {'Effect': 'Allow', 'Action': ['bedrock-agentcore:GetMemory'], 'Resource': deployed['memoryArn']},
+        {'Effect': 'Allow', 'Action': ['bedrock-agentcore:GetGateway'], 'Resource': deployed['gatewayArn']},
         {'Effect': 'Allow', 'Action': ['rds-data:ExecuteStatement'], 'Resource': deployed['clusterArn']},
         {'Effect': 'Allow', 'Action': ['secretsmanager:GetSecretValue'], 'Resource': [deployed['secretArn'], ADMIN_SECRET]},
         {'Effect': 'Allow', 'Action': ['neptune-graph:GetGraph'], 'Resource': deployed['graphArn']},
@@ -108,6 +109,7 @@ def package():
     build.mkdir(parents=True)
     shutil.copy2(ROOT / 'edge' / 'handler.mjs', build / 'handler.mjs')
     shutil.copy2(ROOT / 'infra' / 'deployed.json', build / 'deployed.json')
+    shutil.copy2(ROOT / 'data' / 'travel.json', build / 'travel.json')
     shutil.copytree(ROOT / 'node_modules', build / 'node_modules')
     artifact = ROOT / '.build' / 'onward-edge.zip'
     with zipfile.ZipFile(artifact, 'w', zipfile.ZIP_DEFLATED) as archive:

@@ -8,7 +8,7 @@ from typing import Literal
 
 class TripRequest(BaseModel):
     model_config = ConfigDict(extra='forbid')
-    action: Literal['plan', 'remember', 'clarify'] = 'plan'
+    action: Literal['plan', 'remember', 'clarify', 'book'] = 'plan'
     origin: str = Field(default='LHR', max_length=80)
     destination: str = Field(default='LIS', max_length=80)
     travelDate: str = '2026-09-15'

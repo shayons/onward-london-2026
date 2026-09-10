@@ -83,6 +83,27 @@
         "xray:PutTelemetryRecords"
       ],
       "Resource": "*"
+    },
+    {
+      "Sid": "OnwardGateway",
+      "Effect": "Allow",
+      "Action": [
+        "bedrock-agentcore:InvokeGateway"
+      ],
+      "Resource": "arn:aws:bedrock-agentcore:us-east-1:619763002613:gateway/onward-london-2026-x3wtcgalk7"
+    },
+    {
+      "Sid": "OnwardObservability",
+      "Effect": "Allow",
+      "Action": [
+        "logs:PutResourcePolicy",
+        "logs:DescribeLogGroups",
+        "logs:DescribeResourcePolicies",
+        "cloudwatch:PutMetricData",
+        "xray:GetSamplingRules",
+        "xray:GetSamplingTargets"
+      ],
+      "Resource": "*"
     }
   ]
 }

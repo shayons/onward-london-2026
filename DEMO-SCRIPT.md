@@ -4,7 +4,7 @@ Open **http://localhost:4318**. The audience should leave understanding what dat
 
 ## Before the audience arrives
 
-- Confirm **Online** and open the connection dialog: account `619763002613`, `us-east-1`, Aurora `meridian-demo / onward`, Runtime, Memory, Neptune and S3.
+- Confirm **Online** and open the connection dialog: account `619763002613`, `us-east-1`, Aurora `meridian-demo / onward`, Runtime, Memory, Gateway, Neptune and S3, plus the Gateway and Policy engine ids and the CloudWatch trace link.
 - Run one rehearsal to warm the deployed runtime and inspect actual Memory retrieval in Disambiguation. Long-term preference extraction is asynchronous; it is prepared before the event.
 - Restore AX218's seats after any stock experiment. Then select **New conversation** with **Presenter** selected (the default).
 - Use a desktop viewport with the trace pane open. At narrow widths, the traces button opens the panel separately.
@@ -47,11 +47,23 @@ For a nontechnical audience, spend most of this time on Metrics and Relationship
 
 The default quiet-hotel run has produced **AX218 + Pátio House, £490 complete, at the meeting at 12:25**. The itinerary breaks down £255 fare, £35 bag, £165 hotel and £35 transfer. The hotel is 12 minutes on foot from the venue in the fixture.
 
-Say: “This is an eligible whole journey, with a hotel that fits Alex's preferences. Nothing has been booked.”
+Say: “This is an eligible whole journey, with a hotel that fits Alex's preferences. Nothing has been booked yet. The next click books it, and a policy decides whether the agent may.”
 
 Select a source reference to return to its semantic component. The answer's exact prose is generated live; the card's numbers come from the validated tool result.
 
-## 4:30–5:30 — change the data or the intent
+## 4:30–5:00 — book it under policy
+
+Select **Book this for Alex** on the itinerary card. One click sends the booking turn with Alex’s confirmation attached; there is no dialog.
+
+Watch the rail: a seventh row, **Booking**, appears under “+ one governed action”. Its four events show the request, the policy step (“Policy decides before code runs”), the `book_trip` call through AgentCore Gateway and the returned evidence. The card shows the booking reference, the flight and hotel, the complete price, the seats and rooms left, and **Policy: permitted**.
+
+Say: “The agent asked to act. Before any of our code ran, the gateway evaluated three Cedar policies against the exact arguments: Alex confirmed, the price is under her budget, the itinerary reaches the venue in time, and the airline’s rules hold. Only then did one seat and one room get reserved, atomically, in our fictional inventory. Nothing went to an airline.”
+
+To show a refusal, select **Flight availability** in the footer to sell out AX218, let the automatic recheck run (the agent now selects **ME330 + Pátio House, £564**, a Meridian Europe fare), then click **Book this for Alex**. The airline rule forbids it: in this fictional world only Aster Air accepts agent bookings. The gateway denies the call before the tool runs, the Booking row reads **Refused**, the card explains the policy reason with no success styling, and nothing is reserved. Select **Flight availability** again to restore the seats. The policy engine runs in ENFORCE mode with three policies, `onward_read_tools`, `onward_traveller_booking` and `onward_airline_rules`, shown verbatim on the Solution briefing page. (Typing **Book it for me** without the click is also refused, under the traveller policy, because the confirmation is missing.)
+
+The trace rail footer shows the run’s OpenTelemetry trace id and **View trace in CloudWatch**; open it once to show the same run as timed spans across the runtime, Bedrock, the gateway and Memory.
+
+## 5:00–5:30 — change the data or the intent
 
 Choose one main experiment; keep the others for questions.
 
@@ -72,7 +84,7 @@ Aurora handles authoritative facts and hybrid retrieval. Neptune earns its place
 
 ## Controls and recovery
 
-**Pause/Resume** controls display only. **Auto reveal** reveals received events at the selected pace. Presenter mode starts paused at 0.8s per semantic event; Next layer pauses after each component, and the sixth unlocks the streamed response. **Replay** reuses this run and is labelled recorded. **Stop** terminates the live request/runtime session and marks the run incomplete. **Retry this question** is a fresh AWS call.
+**Book this for Alex** sends one booking turn; the button disables while a run is live and disappears after a booking or a refusal in that conversation. **Flight availability** restores the seat a booking took. **Pause/Resume** controls display only. **Auto reveal** reveals received events at the selected pace. Presenter mode starts paused at 0.8s per semantic event; Next layer pauses after each component, and the sixth unlocks the streamed response. **Replay** reuses this run and is labelled recorded. **Stop** terminates the live request/runtime session and marks the run incomplete. **Retry this question** is a fresh AWS call.
 
 If a live service fails, show the error and check the connection. A previously received run can be replayed, clearly labelled; there is no silent simulation fallback. New conversation returns to the booked-trip opening. Hiding the tab cancels the cancellation timer and pauses display playback.
 

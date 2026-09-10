@@ -1,0 +1,103 @@
+[
+  {
+    "name": "resolve_entities",
+    "description": "Ontology. Resolve the traveller, the origin and destination airports, the trip and the meeting venue against Onward's Aurora entity registry, using aliases. Returns stable identifiers and whether the requested route, date and stay are inside the seeded inventory. Call this first.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "origin": {"type": "string", "description": "Origin airport as the traveller wrote it, for example LHR or Heathrow."},
+        "destination": {"type": "string", "description": "Destination airport as the traveller wrote it, for example LIS or Lisbon."},
+        "travelDate": {"type": "string", "description": "Outbound travel date, ISO format, for example 2026-09-15."},
+        "nights": {"type": "integer", "description": "Number of hotel nights requested."}
+      },
+      "required": ["origin", "destination", "travelDate", "nights"]
+    }
+  },
+  {
+    "name": "search_hotels",
+    "description": "Disambiguation. Turn the traveller's hotel wording and remembered preferences into a concrete search: retrieves actor-scoped preferences from AgentCore Memory, maps them to source-backed vocabulary, embeds the query with Titan and runs Aurora hybrid retrieval (pgvector similarity fused with full-text rank). Returns ranked hotels, the traveller context and every AWS request id. Hard constraints are applied later.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "hotelPreference": {"type": "string", "description": "memory, quiet, lively or none. memory means use remembered preferences; quiet or lively is an explicit request in this conversation; none ignores preferences."},
+        "memoryEnabled": {"type": "boolean", "description": "Whether remembered preferences may influence ranking."},
+        "seatPreference": {"type": "string", "description": "memory, aisle, window or none."},
+        "allergies": {"type": "array", "description": "Allergies explicitly declared in this conversation.", "items": {"type": "string"}},
+        "maxWalkMinutes": {"type": "integer", "description": "Walking limit from hotel to venue, in minutes."},
+        "travelDate": {"type": "string", "description": "Outbound travel date, ISO format."}
+      },
+      "required": ["hotelPreference", "memoryEnabled", "seatPreference", "maxWalkMinutes", "travelDate"]
+    }
+  },
+  {
+    "name": "price_bundles",
+    "description": "Metrics. Price every flight-and-hotel bundle with one complete-price definition: fare plus checked bags plus tax-inclusive hotel nights plus the airport transfer, in integer pence, using parameterised Aurora SQL over current records.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "bags": {"type": "integer", "description": "Checked bags requested."},
+        "nights": {"type": "integer", "description": "Hotel nights requested."}
+      },
+      "required": ["bags", "nights"]
+    }
+  },
+  {
+    "name": "validate_journeys",
+    "description": "Relationships. Fetch flight-leg, airport-transfer and hotel-walk relationships from Neptune Analytics and the versioned policy documents from S3, then apply the arrival allowance and minimum connection rules to every route. Returns each route's landing time, venue arrival and rejection reasons.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "origin": {"type": "string", "description": "Resolved origin airport id."},
+        "destination": {"type": "string", "description": "Resolved destination airport id."},
+        "travelDate": {"type": "string", "description": "Outbound travel date, ISO format."},
+        "deadline": {"type": "string", "description": "Time the traveller must be at the venue, 24-hour local time, for example 14:00."}
+      },
+      "required": ["origin", "destination", "travelDate", "deadline"]
+    }
+  },
+  {
+    "name": "select_itinerary",
+    "description": "Verified examples. Re-run the complete-price query immediately before ranking, keep only bundles that satisfy every hard constraint (venue deadline, strict budget, walking limit, connections, availability) and rank the eligible ones by the requested priority, remembered preferences and seat preference. Returns the supported itinerary, the rejected routes and the minimum feasible price. Call this last, after the four tools above.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "origin": {"type": "string", "description": "Resolved origin airport id."},
+        "destination": {"type": "string", "description": "Resolved destination airport id."},
+        "travelDate": {"type": "string", "description": "Outbound travel date, ISO format."},
+        "deadline": {"type": "string", "description": "Venue deadline, 24-hour local time."},
+        "budgetPence": {"type": "integer", "description": "Exact stated budget in pence; the trip must cost strictly less."},
+        "bags": {"type": "integer", "description": "Checked bags requested."},
+        "nights": {"type": "integer", "description": "Hotel nights requested."},
+        "maxWalkMinutes": {"type": "integer", "description": "Walking limit in minutes."},
+        "priority": {"type": "string", "description": "balanced, earliest or cheapest."},
+        "hotelPreference": {"type": "string", "description": "memory, quiet, lively or none."},
+        "seatPreference": {"type": "string", "description": "memory, aisle, window or none."},
+        "allergies": {"type": "array", "description": "Allergies explicitly declared in this conversation.", "items": {"type": "string"}},
+        "memoryEnabled": {"type": "boolean", "description": "Whether remembered preferences may influence ranking."}
+      },
+      "required": ["origin", "destination", "travelDate", "deadline", "budgetPence", "bags", "nights", "maxWalkMinutes", "priority", "hotelPreference", "seatPreference", "memoryEnabled"]
+    }
+  },
+  {
+    "name": "book_trip",
+    "description": "Booking. Reserve the supported itinerary in Onward's fictional Aurora inventory: takes one seat on the flight and one room at the hotel atomically and records a booking reference. Only call this when the traveller has confirmed the booking in this conversation. The gateway policy engine checks the arguments before the tool runs.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "offerId": {"type": "string", "description": "Selected flight offer id, for example AX218."},
+        "hotelId": {"type": "string", "description": "Selected hotel id, for example patio-house."},
+        "carrier": {"type": "string", "description": "Carrier name of the selected offer."},
+        "totalPence": {"type": "integer", "description": "Complete price of the itinerary in pence, exactly as select_itinerary returned it."},
+        "budgetPence": {"type": "integer", "description": "The traveller's stated budget in pence."},
+        "bags": {"type": "integer", "description": "Checked bags in the itinerary."},
+        "nights": {"type": "integer", "description": "Hotel nights in the itinerary."},
+        "arrivesBeforeDeadline": {"type": "boolean", "description": "True only if select_itinerary reported the venue arrival before the deadline."},
+        "seatsAvailable": {"type": "integer", "description": "Seats available on the offer as reported by select_itinerary."},
+        "seatSelectionIncluded": {"type": "boolean", "description": "Whether seat selection is included in the fare, as reported by select_itinerary."},
+        "travellerConfirmed": {"type": "boolean", "description": "True only if the traveller explicitly confirmed this booking in the current turn."},
+        "sessionId": {"type": "string", "description": "The Onward conversation session id."}
+      },
+      "required": ["offerId", "hotelId", "carrier", "totalPence", "budgetPence", "bags", "nights", "arrivesBeforeDeadline", "seatsAvailable", "seatSelectionIncluded", "travellerConfirmed", "sessionId"]
+    }
+  }
+]

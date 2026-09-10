@@ -1,11 +1,13 @@
-"""AWS adapters. Credentials come from the runtime role or the local AWS chain."""
+"""AWS adapters shared by the runtime and the tool Lambda. Credentials come from the role.
+
+This module imports only boto3 so the tool Lambda stays small; model selection lives in models.py.
+"""
 import json
 import os
 from pathlib import Path
 
 import boto3
 from botocore.config import Config
-from strands.models import BedrockModel
 
 CONFIG_PATH = Path(os.environ.get('ONWARD_CONFIG', Path(__file__).resolve().parent / 'deployed.json'))
 if not CONFIG_PATH.exists():
@@ -19,25 +21,8 @@ MEMORY = SESSION.client('bedrock-agentcore', config=CONFIG)
 GRAPH = SESSION.client('neptune-graph', config=CONFIG)
 S3 = SESSION.client('s3', config=CONFIG)
 
-# The presenter can swap the language model per run. The allowlist lives in deployed.json so
-# the runtime, the local proxy and the browser all read one list, and a request can never point
-# the runtime at a model its execution role is not scoped to invoke.
-SELECTABLE_MODELS = SETTINGS.get('selectableModels') or {SETTINGS['modelId']: SETTINGS['modelId']}
 
-
-def resolve_model_id(requested):
-    """Return an allowlisted model id, falling back to the deployed default."""
-    return requested if requested in SELECTABLE_MODELS else SETTINGS['modelId']
-
-
-def language_model(model_id, max_tokens):
-    """A Strands model for one call. Temperature is left at the provider default because
-    current Claude models reject the parameter; determinism comes from the typed contract."""
-    return BedrockModel(model_id=model_id, max_tokens=max_tokens,
-                        boto_session=SESSION, boto_client_config=CONFIG)
-
-
-def db(query, values=None):
+def _parameters(values):
     params = []
     for key, value in (values or {}).items():
         if isinstance(value, bool):
@@ -47,8 +32,13 @@ def db(query, values=None):
         else:
             field = {'stringValue': json.dumps(value) if isinstance(value, (list, dict)) else str(value)}
         params.append({'name': key, 'value': field})
-    response = DB.execute_statement(resourceArn=SETTINGS['clusterArn'], secretArn=SETTINGS['secretArn'],
-        database=SETTINGS['database'], sql=query, parameters=params, formatRecordsAs='JSON')
+    return params
+
+
+def db(query, values=None, secret_arn=None):
+    """Run one parameterised statement through the Data API with the reader secret by default."""
+    response = DB.execute_statement(resourceArn=SETTINGS['clusterArn'], secretArn=secret_arn or SETTINGS['secretArn'],
+        database=SETTINGS['database'], sql=query, parameters=_parameters(values), formatRecordsAs='JSON')
     rows = json.loads(response.get('formattedRecords', '[]'))
     # The Data API's JSON format represents PostgreSQL jsonb columns as strings.
     for row in rows:
@@ -56,6 +46,14 @@ def db(query, values=None):
             if isinstance(row.get(key), str):
                 row[key] = json.loads(row[key])
     return rows, response['ResponseMetadata']['RequestId']
+
+
+def db_write(query, values=None):
+    """Run a statement with the writer secret. Only the booking tool uses this."""
+    writer = SETTINGS.get('writerSecretArn')
+    if not writer:
+        raise RuntimeError('No writer secret is deployed; run scripts/provision_gateway.py first.')
+    return db(query, values, writer)
 
 
 def graph(query, params=None):
@@ -94,6 +92,9 @@ PRICE_QUERY = """SELECT o.id AS offer_id,h.id AS hotel_id,
  o.seats,o.aisle_seats,o.window_seats,o.seat_selection_included,o.seat_source_id,h.rooms,o.updated_at::text AS checked_at
 FROM offers o CROSS JOIN hotels h ORDER BY o.id,h.id"""
 
+OFFER_QUERY = """SELECT id,carrier,description,fare_pence,bag_pence,seats,aisle_seats,window_seats,
+ seat_selection_included,seat_source_id,source_id FROM offers ORDER BY id"""
+
 LEG_QUERY = """MATCH (o:OnwardOffer)-[:HAS_LEG]->(l:OnwardLeg),
  (l)-[:DEPARTS_FROM]->(a:OnwardAirport), (l)-[:ARRIVES_AT]->(b:OnwardAirport)
 RETURN o.id AS offer_id,l.sequence AS sequence,a.id AS origin,b.id AS destination,
@@ -104,3 +105,15 @@ RETURN t.minutes AS minutes,t.pricePence AS price_pence,t.source AS source_id,v.
 
 WALK_QUERY = """MATCH (h:OnwardHotel)-[w:WALK_TO]->(v:OnwardVenue {id:$venue})
 RETURN h.id AS hotel_id,w.minutes AS minutes"""
+
+# One atomic statement: the booking row exists only if a seat and a room were still available.
+BOOKING_QUERY = """WITH offer AS (
+ UPDATE offers SET seats=seats-1,updated_at=now() WHERE id=:offer AND seats>0 RETURNING id,seats
+), hotel AS (
+ UPDATE hotels SET rooms=rooms-1 WHERE id=:hotel AND rooms>0 RETURNING id,rooms
+), booked AS (
+ INSERT INTO bookings(id,session_id,traveller_id,offer_id,hotel_id,total_pence,policy_decision)
+ SELECT :booking,:session,:traveller,offer.id,hotel.id,CAST(:total AS integer),:policy FROM offer,hotel
+ RETURNING id,offer_id,hotel_id,total_pence,created_at::text AS created_at
+)
+SELECT booked.*,offer.seats AS seats_left,hotel.rooms AS rooms_left FROM booked,offer,hotel"""

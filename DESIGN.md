@@ -275,6 +275,14 @@ The hotel photograph marks a **change** of hotel, not the presence of one. The f
 
 **The Imagery Marks Change Rule.** Repeating an image on every turn spends the one moment it should punctuate. If nothing about the subject changed, show its name, not its picture.
 
+### Booking under policy
+
+The itinerary card ends with one primary action, **Book this for Alex**, on its own ruled row with a one-line note that the gateway’s policy decides and the inventory is fictional. It is a `.primary` at `--type-support`, 44px tall, and it disables while a run is live; it appears only on the latest supported itinerary and only until the conversation has a booking or a refusal.
+
+The confirmation card is paper with a green rule, the booking reference in Caslon, the complete price in burgundy, the journey facts (flight, hotel, seats left, rooms left) and a green policy line: “Policy: permitted.” The inventory note says the reservation is fictional. The refusal card is rose paper with a burgundy rule and a Caslon heading “Booking refused by policy.”, the gateway’s reason in ink, and a plain statement that nothing was reserved. No success colour touches a refusal.
+
+**The Action Is Governed Rule.** A card that shows an action must show the decision that allowed it, named for what made it: the traveller’s click, the budget, the deadline and the airline rule. A refusal is rendered as information, never as an error state of the app.
+
 ### Follow-ups
 
 Five chips, each exercising a different responsibility and producing a visibly different outcome: re-rank on time, explain a rejected route, flip the semantic hotel match, force an honest no-match, override remembered preference for one trip. Chips are paper with a fine border and 7px corners. Never offer two follow-ups that land on the same answer by different words.
@@ -285,7 +293,7 @@ The dock carries a **Model** select beside Pace, at `--type-controls`, populated
 
 ### Six semantic components and evidence
 
-Business context, Ontology, Disambiguation, Metrics, Relationships and Verified examples form a ruled list with numbered or checked circles. Collapsed rows name service contributions; expansion reveals the question, explanation, actual service roles and input/output evidence. The open row stays sticky within the trace scroll region. Event cards use warm inset fills and readable DM Sans titles and prose. Evidence inspection opens a native dialog with wrapped monospace records. The six entries describe semantic responsibilities; they are not six separate databases.
+Business context, Ontology, Disambiguation, Metrics, Relationships and Verified examples form a ruled list with numbered or checked circles. A seventh row, **Booking**, appears under a small divider, “+ one governed action”, only once a booking turn has produced an event; the heading above the rail still says six, because the seventh is an action, not a responsibility. A refused booking gets a burgundy cross in the circle and the state **Refused**. The rail footer carries the run’s OpenTelemetry trace id and a burgundy “View trace in CloudWatch” link at `--type-controls`; the footer is empty before the first run. Collapsed rows name service contributions; expansion reveals the question, explanation, actual service roles and input/output evidence. The open row stays sticky within the trace scroll region. Event cards use warm inset fills and readable DM Sans titles and prose. Evidence inspection opens a native dialog with wrapped monospace records. The six entries describe semantic responsibilities; they are not six separate databases.
 
 ## Do's and Don'ts
 
@@ -303,4 +311,4 @@ Business context, Ontology, Disambiguation, Metrics, Relationships and Verified 
 - Don't add metallic fills to Send or Reveal cancellation.
 - Don't use Caslon for the composer, sent requests, trace-event titles or operational labels.
 - Don't substitute tiny metadata text for the explanation the audience needs to read.
-- Don't imply a booking or live supplier feed, invent hotel scores before retrieval, or hide an unmet constraint behind success styling.
+- Don't imply a supplier booking or live supplier feed, invent hotel scores before retrieval, or hide an unmet constraint or a refused booking behind success styling.

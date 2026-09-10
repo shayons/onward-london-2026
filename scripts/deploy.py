@@ -23,7 +23,7 @@ def main():
     cfg = json.loads(state_path.read_text())
     package = ROOT / '.build/package'
     sync_dependencies(package)
-    for filename in ('main.py', 'services.py', 'planner.py'):
+    for filename in ('main.py', 'services.py', 'planner.py', 'models.py', 'gateway_auth.py'):
         shutil.copy2(ROOT / 'backend' / filename, package / filename)
     shutil.copy2(state_path, package / 'deployed.json')
     artifact = ROOT / '.build/onward.zip'
@@ -40,7 +40,8 @@ def main():
         'runtime': 'PYTHON_3_13', 'entryPoint': ['main.py']}}, 'roleArn': cfg['roleArn'],
         'networkConfiguration': {'networkMode': 'PUBLIC'}, 'protocolConfiguration': {'serverProtocol': 'HTTP'},
         'lifecycleConfiguration': {'idleRuntimeSessionTimeout': 300, 'maxLifetime': 1800},
-        'environmentVariables': {'PYTHONUNBUFFERED': '1', 'ONWARD_CONFIG': 'deployed.json'}}
+        'environmentVariables': {'PYTHONUNBUFFERED': '1', 'ONWARD_CONFIG': 'deployed.json', 'AGENT_OBSERVABILITY_ENABLED': 'true',
+            'OTEL_PYTHON_DISTRO': 'aws_distro', 'OTEL_PYTHON_CONFIGURATOR': 'aws_configurator', 'UNIFIED_TRACES_DESTINATION_ENABLED': 'true'}}
     if cfg.get('runtimeId'):
         result = runtime.update_agent_runtime(agentRuntimeId=cfg['runtimeId'], **request)
     else:

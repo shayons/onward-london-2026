@@ -50,7 +50,7 @@ The demo clock is fixed at **14 September 2026, 18:00 Europe/London**. This make
 - The hotel is within the requested walking limit; “nearby” defaults to 20 minutes on foot under the demo policy.
 - The selected flight and hotel have availability in the current **fictional Aurora inventory**.
 - Soft preferences improve ranking only after hard constraints are satisfied.
-- No booking or reservation is made.
+- Nothing is reserved until Alex confirms with one click. The booking then reserves one seat and one room in the fictional Aurora inventory, after AgentCore Gateway’s Cedar policy has permitted the call. No supplier is contacted and no payment is taken.
 
 The budget excludes travel to Heathrow, a return flight and a return airport transfer. Supplier fares and hotel prices already include applicable taxes; taxes must not be added twice.
 
@@ -121,12 +121,14 @@ The authorised AWS account is **619763002613**, accessed through the user's exis
 | Service | Onward's responsibility |
 |---|---|
 | Aurora PostgreSQL | Reuse the existing `meridian-demo` cluster with an isolated database named `onward`. Store entities, definitions, offers, hotels, documents and pgvector embeddings. The runtime uses its own database reader secret and role. |
-| Amazon Bedrock | Interpret the user request into a typed contract, generate query embeddings and stream a concise response grounded in the completed tool result. Both language-model calls go through the **Strands Agents SDK**, so the model is one parameter rather than a code path. Titan Text Embeddings V2 produces the hotel and query vectors. |
-| AgentCore Runtime | Host Onward's Python agent, coordinate real service calls and return an SSE stream. The local Node server invokes the IAM-authenticated runtime with the user's AWS credential chain. |
+| Amazon Bedrock | Interpret the user request into a typed contract, plan by calling the gateway tools, and stream a concise response grounded in the last tool result. The contract call and the planning agent go through the **Strands Agents SDK**, so the model is one parameter rather than a code path. Titan Text Embeddings V2 produces the hotel and query vectors inside the tools. |
+| AgentCore Runtime | Host Onward’s Python agent, sign every gateway request with its execution role (SigV4), persist the conversation through the Strands session manager and return an SSE stream. Auto-instrumented with the AWS Distro for OpenTelemetry; spans land in its CloudWatch log group. The local Node server invokes the IAM-authenticated runtime with the user’s AWS credential chain. |
+| AgentCore Gateway and Policy | Serve the six Onward tools over MCP from one Lambda target with AWS IAM inbound authorisation. A Cedar policy engine in ENFORCE mode evaluates every call: five read tools are permitted (`onward_read_tools`), book_trip is permitted only with the traveller’s confirmation, a price under budget and an on-time arrival (`onward_traveller_booking`), and forbidden by the airline rule (`onward_airline_rules`) when the carrier is not Aster Air, no seat remains or the fare excludes seat selection. In this fictional world only Aster Air accepts agent bookings; a Meridian Europe fare must be booked by a human agent. |
+| AWS Lambda | One Python function implements the six tools (reader secret for reads, a separate writer secret for the atomic booking statement); another Node function proxies the published API behind CloudFront. Lambda ships no official mark in this build and is named rather than iconised. |
 | AgentCore Memory | Persist conversations and extract actor-scoped facts, preferences, session summaries and completed episodes within the Onward namespace. Memory never supplies authoritative fare, stock or schedule facts. |
 | Neptune Analytics | A dedicated Onward graph holds journey and walking relationships. The demo graph is provisioned at 16 m-NCUs with no replica; it incurs charges while running. |
 | Amazon S3 | Keep versioned original fixture/policy sources and the immutable deployment ZIP versions. Public bucket access is blocked. |
-| CloudWatch Logs | Store structured application trace events with request IDs. Onward's runtime log group uses a KMS key and seven-day retention. |
+| CloudWatch Logs | Store structured application trace events with request IDs and the runtime’s OpenTelemetry spans in one KMS-encrypted log group with seven-day retention. CloudWatch Transaction Search is enabled, so sessions, traces, token usage and durations appear in the GenAI Observability dashboard. |
 
 Exact deployed identifiers are recorded in `infra/deployed.json`. Deployment status alone is not proof of successful execution; the interface checks service readiness, and verification must include a complete invocation through the deployed runtime.
 
@@ -134,7 +136,7 @@ S3 Vectors and DynamoDB are **not provisioned for this version**. Aurora already
 
 ## Model Selection
 
-Both language-model calls run through the Strands Agents SDK, so swapping models is a parameter, not a rewrite. The presenter dock carries a **Model** control listing the allowlisted choices; the selection travels with the next question and the trace records which model produced it.
+The contract call and the planning agent both run through the Strands Agents SDK, so swapping models is a parameter, not a rewrite. The presenter dock carries a **Model** control listing the allowlisted choices; the selection travels with the next question and the trace records which model produced it.
 
 The allowlist lives in `infra/deployed.json` as `selectableModels`, read by the runtime, the local proxy and the browser alike. A request naming anything outside it silently falls back to the deployed default, and the runtime's execution role is scoped to exactly these inference profiles, so an injected id cannot reach an unapproved model.
 
@@ -147,7 +149,7 @@ Measured on the deployed runtime against the same question and the same seeded d
 | Claude Haiku 4.5 | 10.5s | **earliest** | **AX102** + Pátio House, £590 | 90 words |
 | GPT-5.6 Luna | 15.6s | balanced | AX218 + Pátio House, £490 | 78 words |
 
-These are single samples, not a benchmark. The useful demonstration is not which model wins: it is that Haiku reads the same sentence as a request for the earliest arrival, sets `priority: earliest` in the typed contract, and produces a different, more expensive but entirely valid itinerary. The deterministic layer holds — the deadline, budget, walking limit and availability checks are identical — while the interpretation of intent moves. That is the semantic layer's boundary made visible.
+These are single samples measured before the gateway rewrite, not a benchmark; the tool-calling loop now adds one model turn per tool. The useful demonstration is not which model wins: it is that Haiku reads the same sentence as a request for the earliest arrival, sets `priority: earliest` in the typed contract, and produces a different, more expensive but entirely valid itinerary. The deterministic layer holds — the deadline, budget, walking limit and availability checks are identical — while the interpretation of intent moves. That is the semantic layer's boundary made visible.
 
 Reasoning-capable models spend token budget before their first visible word, so the answer ceiling is 2,000 tokens and the contract ceiling 4,000. Length is governed by the prompt, not the cap.
 
@@ -157,7 +159,7 @@ Short-term conversation state supports follow-ups such as “Can I arrive earlie
 
 Built-in long-term extraction is asynchronous. If extracted preferences are not yet available, the agent may retrieve the saved onboarding conversation; the trace must label this as short-term source context. It must never present authored local text as a successful Memory retrieval.
 
-AgentCore Memory and Aurora are separate stores. Onward does not use Aurora as AgentCore Memory's backing store and does not mirror Memory records into an Aurora memory table. The runtime retrieves actor-scoped preferences, resolves current-request precedence and combines them with the Aurora traveller profile. Preference language then shapes the Bedrock query embedding and lexical terms used by Aurora's pgvector/full-text hotel retrieval. Aurora also retains the explicit traveller declaration, product facts, complete-price definition and current availability as authoritative application data.
+AgentCore Memory and Aurora are separate stores. Onward does not use Aurora as AgentCore Memory's backing store and does not mirror Memory records into an Aurora memory table. The search_hotels tool, behind AgentCore Gateway, retrieves actor-scoped preferences, resolves current-request precedence and combines them with the Aurora traveller profile; the runtime’s Strands session manager persists the conversation to Memory and injects retrieved context into the planning prompt. Preference language then shapes the Bedrock query embedding and lexical terms used by Aurora's pgvector/full-text hotel retrieval. Aurora also retains the explicit traveller declaration, product facts, complete-price definition and current availability as authoritative application data.
 
 An explicit instruction in the current question overrides a remembered preference. Turning memory off removes its ranking influence; it does not erase historical records. A new conversation receives a new runtime session while the fictional traveller's cross-session preferences remain scoped to Alex.
 
@@ -165,7 +167,7 @@ An explicit instruction in the current question overrides a remembered preferenc
 
 The requested visual direction incorporates the supplied **Grok Onward design**: warm paper, burgundy, panoramic Lisbon imagery, premium hotel tiles and a full-screen concierge beside a trace panel. Self-hosted Google Fonts match the supplied Grok families: Libre Caslon Text carries the wordmark, airport codes, itinerary titles and section headings; DM Sans carries body text, labels, controls, composer and conversation. Caslon uses regular 400 headlines, with bold 700 and real italic 400 loaded. DM Sans includes optical sizing from 9–40, weights 400/500/600 and real italic 400; body text is 400 and UI labels are 500. Palatino fallbacks, ss01/cv11 features and antialiased smoothing match the reference. Type does not escalate on wide displays: from 1500px up the laptop sizes apply and only the layout widens. Detailed visual rules belong in `DESIGN.md`.
 
-The main pane begins with Alex’s enlarged portrait, the booked trip and meeting context. Cancellation reveals the replacement challenge; the first send compacts the trip context. Conversation history, grounded itinerary summaries and a large composer with an icon-only paper-plane action follow. The trace pane sits alongside the conversation on desktop, with six expandable components. Its width grows from the MacBook layout to a wide presentation display while type stays at the laptop sizes; a distant audience is served by browser zoom. Questions have a bounded reading measure. On small screens it opens as a dedicated panel.
+The main pane begins with Alex’s enlarged portrait, the booked trip and meeting context. Cancellation reveals the replacement challenge; the first send compacts the trip context. Conversation history, grounded itinerary summaries and a large composer with an icon-only paper-plane action follow. The trace pane sits alongside the conversation on desktop, with six expandable components and a seventh, Booking, that appears only when a booking turn runs and shows the gateway’s policy decision. Its width grows from the MacBook layout to a wide presentation display while type stays at the laptop sizes; a distant audience is served by browser zoom. Questions have a bounded reading measure. On small screens it opens as a dedicated panel.
 
 Collapsed rows name their contributing services and purpose. Disambiguation calls out Aurora hybrid retrieval and AgentCore Memory; its expanded service roles distinguish Titan embeddings, vector similarity, keyword relevance and rank fusion. Each trace can reveal actual tool arguments, SQL or graph queries, returned records, source references, service request IDs and measured duration. These are application execution events, not private model reasoning. The itinerary explains the total price, arrival at the venue, hotel fit and sources.
 
@@ -182,19 +184,20 @@ The five offered follow-ups each exercise a different responsibility and land a 
 - **Pace:** add an explicit presentation delay; this is not a measure of service latency.
 - **Replay:** consume the recorded run without making new AWS calls. Label replay as recorded.
 - **Stop:** stop the current request/runtime session; mark the run incomplete.
+- **Book this for Alex:** one click on the itinerary card sends the booking turn with the traveller’s confirmation attached. The Cedar policy at AgentCore Gateway permits or refuses the book_trip call before the tool runs; the card shows the booking reference, the seats and rooms left and the decision, or the refusal reason with no success styling. One booking per conversation.
 - **Cancellation timer:** explicitly start, cancel or manually reveal the disruption. Hiding the tab cancels the timer and pauses the display.
 
 The UI must not reveal the final answer ahead of its supporting components during a stepped presentation. The compact trip and short follow-up composer leave the active conversation more space. Hotel comparisons and itineraries enter from a controlled top anchor. Automatic following only continues when the viewer is already near the bottom; deliberate presenter scrolling is preserved, and Latest returns to the end. Source inspection should remain usable while the presenter explains a query.
 
-The footer names **AgentCore Memory** explicitly and exposes a **Flight availability** control. A green pulsing **Online** status opens real AWS connection details; reduced-motion settings stop the pulse. Hotel tiles show descriptions, walking times, nightly prices and actual lexical/semantic scores after Disambiguation. Before a run, the preparation page shows score placeholders rather than invented rankings. The app continues to use the existing live Pátio House, Forum Rooms and Coast Retreat dataset, not the Grok prototype’s alternate prices or hotel records.
+The footer names **AgentCore Memory** explicitly and exposes a **Flight availability** control. The trace rail’s footer shows the run’s OpenTelemetry trace id with a link to the CloudWatch GenAI Observability dashboard. A green pulsing **Online** status opens real AWS connection details; reduced-motion settings stop the pulse. Hotel tiles show descriptions, walking times, nightly prices and actual lexical/semantic scores after Disambiguation. Before a run, the preparation page shows score placeholders rather than invented rankings. The app continues to use the existing live Pátio House, Forum Rooms and Coast Retreat dataset, not the Grok prototype’s alternate prices or hotel records.
 
-**Solution briefing** has its own `/briefing` view: what the product is, what the agent does step by step, the two model calls and the five kinds of AWS operation the fixed pipeline makes, the behaviours its deterministic rules produce, a tabbed AgentCore Memory showcase, the architecture highlights and their boundaries, an architecture diagram of the deployed topology, the key AWS services and their roles, the two delivery paths and their access posture, the interface, and how the whole thing is verified. The page states plainly that the model never selects a tool and that no framework skill is involved. The Memory tabs quote records the deployed strategies returned, labelled as recorded rather than live, including the extracted episode. It is written for someone evaluating the approach, not operating the demo.
+**Solution briefing** has its own `/briefing` view: what the product is, what the agent does step by step, the model’s three decisions and the six MCP tools it calls through AgentCore Gateway, the behaviours its deterministic rules produce, the three Cedar policies verbatim, observability, the one-click booking, a tabbed AgentCore Memory showcase, the architecture highlights and their boundaries, an architecture diagram of the deployed topology, the key AWS services and their roles, the two delivery paths and their access posture, the interface, and how the whole thing is verified. The page states plainly that the model sequences six gateway tools but never reaches a store directly, that the gateway’s policy engine decides whether a booking may run, and that no framework skill is involved. The Memory tabs quote records the deployed strategies returned, labelled as recorded rather than live, including the extracted episode. It is written for someone evaluating the approach, not operating the demo.
 
 **Data preparation** has its own `/prepare` view with typed offers, the price definition, hotel retrieval, journey relationships, Memory and versioned policies. **Architecture** opens the retrieval-choice framework in that view: exact/relational, keyword, embeddings, vector search, hybrid fusion and graph traversal, each with the question it answers, where it wins, where it fails and what Onward does with it. Embeddings are attributed to Bedrock and vector similarity to Aurora, so no row conflates two services. Official AWS icons supplied in Downloads identify Aurora, Bedrock, AgentCore, Neptune and S3; provenance is recorded under `assets/aws/`.
 
 ## Demo Story and Timing
 
-A six-minute narrative is: introduce Alex's booked trip; reveal cancellation; ask the complete request; step through the six components; linger on the late arrival and short connection; show the supported itinerary; change availability or budget and run a follow-up.
+A six-minute narrative is: introduce Alex's booked trip; reveal cancellation; ask the complete request; step through the six components; linger on the late arrival and short connection; show the supported itinerary; book it on one click under policy; change availability or budget and run a follow-up.
 
 The strongest closing point is that the agent adapts because the underlying goal, definitions, relationships, preferences and current records are available as data. The supporting services each earn their place by answering a specific part of the question.
 
@@ -202,7 +205,7 @@ The click-by-click narration belongs in `DEMO-SCRIPT.md` and should track the sh
 
 ## Boundaries and Non-Goals
 
-This is a connected AWS demonstration over a deliberately bounded fictional travel dataset. It is not a commercial booking service, a complete worldwide travel search product, a source of live traffic or flight status, a payment workflow, or a production travel-policy authority.
+This is a connected AWS demonstration over a deliberately bounded fictional travel dataset. It is not a commercial booking service, a complete worldwide travel search product, a source of live traffic or flight status, a payment workflow, or a production travel-policy authority. A booking reserves fictional inventory in Aurora under a Cedar policy decision at AgentCore Gateway; it never contacts a supplier or takes payment.
 
 Unsupported routes, dates or stay lengths should be explained clearly. Never silently substitute a supported trip. If no eligible bundle exists, return no match and identify the limiting constraints. If an AWS service fails, show the failure rather than silently replacing its output with a local fixture.
 
@@ -212,11 +215,11 @@ Do not expose credentials in the browser, documentation, trace output or public 
 
 The traveller can understand the proposed trip and complete price without opening technical traces. The presenter can explain how each semantic component contributes to the answer, pause and replay reliably, and demonstrate a changed result after a genuine source-data change.
 
-Verification must cover an end-to-end deployed runtime invocation, actual Aurora/Neptune/S3/Memory request evidence, memory retrieval and conversation persistence, strict budget boundaries, venue arrival and connection arithmetic, no-fit and unsupported requests, stock changes, source inspection, streaming controls, desktop/mobile readability and isolation from Counter.
+Verification must cover an end-to-end deployed runtime invocation through AgentCore Gateway, actual Aurora/Neptune/S3/Memory request evidence with request IDs, a permitted and a refused booking, an OpenTelemetry trace per run, memory retrieval and conversation persistence, strict budget boundaries, venue arrival and connection arithmetic, no-fit and unsupported requests, stock changes, source inspection, streaming controls, desktop/mobile readability and isolation from Counter.
 
 ## Open Decisions
 
-Onward is the working product name. The current route and inventory are intentionally bounded. Future live supplier APIs, booking actions, broader city coverage, authentication for external users, production observability and the final hosted event URL are separate product decisions. Add another data store only when a concrete retrieval or operational requirement justifies it.
+Onward is the working product name. The current route and inventory are intentionally bounded. Future live supplier APIs, broader city coverage, authentication for external users and the final hosted event URL are separate product decisions. Add another data store only when a concrete retrieval or operational requirement justifies it.
 
 
 ## Traveller preferences and declarations

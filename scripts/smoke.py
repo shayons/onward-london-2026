@@ -8,13 +8,13 @@ from datetime import datetime, timezone
 from provision import ROOT, SESSION, CONFIG
 
 
-def invoke(message, session_id=None):
+def invoke(message, session_id=None, **extra):
     cfg = json.loads((ROOT / 'infra/deployed.json').read_text())
     session_id = session_id or 'onward-' + str(uuid.uuid4())
     result = SESSION.client('bedrock-agentcore', config=CONFIG).invoke_agent_runtime(
         agentRuntimeArn=cfg['runtimeArn'], runtimeSessionId=session_id, qualifier='DEFAULT',
         contentType='application/json', accept='text/event-stream',
-        payload=json.dumps({'message': message, 'sessionId': session_id, 'runId': str(uuid.uuid4())}).encode())
+        payload=json.dumps({'message': message, 'sessionId': session_id, 'runId': str(uuid.uuid4()), **extra}).encode())
     events = []
     with result['response'] as stream:
         pending = b''
@@ -40,8 +40,15 @@ def invoke(message, session_id=None):
 
 
 def main():
-    prompt = ' '.join(sys.argv[1:]) or 'My flight has been cancelled. Get me from Heathrow to my Lisbon meeting by 2pm tomorrow, with one hotel night nearby. Keep the outbound flight, checked bag, hotel and airport transfer under £650.'
+    book = '--book' in sys.argv
+    words = [arg for arg in sys.argv[1:] if arg != '--book']
+    prompt = ' '.join(words) or 'My flight has been cancelled. Get me from Heathrow to my Lisbon meeting by 2pm tomorrow, with one hotel night nearby. Keep the outbound flight, checked bag, hotel and airport transfer under £650.'
     events, session, request = invoke(prompt)
+    if book:
+        # The one-click confirmation: the browser sends confirmBooking=true; the gateway's Cedar policies decide.
+        booking_events, _, booking_request = invoke('Book this itinerary for Alex.', session, confirmBooking=True)
+        events += booking_events
+        print('booking request', booking_request, json.dumps(next((e for e in booking_events if e.get('type') == 'booking'), None)), flush=True)
     folder = ROOT / '.local/verification'
     folder.mkdir(parents=True, exist_ok=True)
     output = {'at': datetime.now(timezone.utc).isoformat(), 'sessionId': session, 'runtimeRequestId': request, 'events': events}

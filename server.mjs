@@ -3,7 +3,7 @@ import {readFile, writeFile, mkdir} from 'node:fs/promises';
 import {resolve, extname, sep} from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {BedrockAgentCoreClient, InvokeAgentRuntimeCommand, StopRuntimeSessionCommand} from '@aws-sdk/client-bedrock-agentcore';
-import {BedrockAgentCoreControlClient, GetAgentRuntimeCommand, GetMemoryCommand} from '@aws-sdk/client-bedrock-agentcore-control';
+import {BedrockAgentCoreControlClient, GetAgentRuntimeCommand, GetGatewayCommand, GetMemoryCommand} from '@aws-sdk/client-bedrock-agentcore-control';
 import {STSClient, GetCallerIdentityCommand} from '@aws-sdk/client-sts';
 import {RDSDataClient, ExecuteStatementCommand} from '@aws-sdk/client-rds-data';
 import {NeptuneGraphClient, GetGraphCommand} from '@aws-sdk/client-neptune-graph';
@@ -31,17 +31,18 @@ async function health(){
     rds.send(new ExecuteStatementCommand({resourceArn:cfg.clusterArn,secretArn:cfg.secretArn,database:cfg.database,sql:'SELECT current_database() AS database,(SELECT count(*) FROM offers) AS offers,(SELECT count(*) FROM hotels) AS hotels,(SELECT seats FROM offers WHERE id=\'AX218\') AS ax218_seats,(SELECT extversion FROM pg_extension WHERE extname=\'vector\') AS pgvector',formatRecordsAs:'JSON'})),
     control.send(new GetAgentRuntimeCommand({agentRuntimeId:cfg.runtimeId})),
     control.send(new GetMemoryCommand({memoryId:cfg.memoryId})),
+    control.send(new GetGatewayCommand({gatewayIdentifier:cfg.gatewayId})),
     neptune.send(new GetGraphCommand({graphIdentifier:cfg.graphId})),
     s3.send(new HeadObjectCommand({Bucket:cfg.bucket,Key:'sources/travel-raw-v1.json'}))
   ]);
-  const names=['Aurora PostgreSQL','AgentCore Runtime','AgentCore Memory','Neptune Analytics','Amazon S3'];
+  const names=['Aurora PostgreSQL','AgentCore Runtime','AgentCore Memory','AgentCore Gateway','Neptune Analytics','Amazon S3'];
   const services=checks.map((check,i)=>({name:names[i],ok:check.status==='fulfilled',
     status:check.status==='fulfilled'?(check.value.status||check.value.memory?.status||'CONNECTED'):(check.reason.name||'Unavailable'),
     requestId:check.status==='fulfilled'?check.value.$metadata?.requestId:null,
     ...(i===0&&check.status==='fulfilled'?{details:JSON.parse(check.value.formattedRecords)[0]}:{})}));
-  const value={ok:services.every(s=>s.ok&&(!['AgentCore Runtime','AgentCore Memory','Neptune Analytics'].includes(s.name)||['READY','ACTIVE','AVAILABLE'].includes(s.status))),
+  const value={ok:services.every(s=>s.ok&&(!['AgentCore Runtime','AgentCore Memory','AgentCore Gateway','Neptune Analytics'].includes(s.name)||['READY','ACTIVE','AVAILABLE'].includes(s.status))),
     accountId:identity.Account,region,services,cluster:cfg.clusterId,database:cfg.database,model:cfg.modelId,
-    runtimeId:cfg.runtimeId,memoryId:cfg.memoryId,graphId:cfg.graphId,bucket:cfg.bucket,models:cfg.selectableModels||{},checkedAt:new Date().toISOString(),
+    runtimeId:cfg.runtimeId,memoryId:cfg.memoryId,gatewayId:cfg.gatewayId,policyEngineId:cfg.policyEngineId,graphId:cfg.graphId,bucket:cfg.bucket,models:cfg.selectableModels||{},checkedAt:new Date().toISOString(),
     fixtureDate:'2026-09-15',supplierData:'fictional'};
   cachedHealth={saved:Date.now(),value};return value;
 }
@@ -62,6 +63,7 @@ async function chat(req,res){
       runtimeSessionId:input.sessionId,qualifier:'DEFAULT',contentType:'application/json',accept:'text/event-stream',
       payload:Buffer.from(JSON.stringify({message:input.message.trim(),sessionId:input.sessionId,runId,
         ...(typeof input.memoryEnabled==='boolean'?{memoryEnabled:input.memoryEnabled}:{}),
+        ...(input.confirmBooking===true?{confirmBooking:true}:{}),
         ...(typeof input.modelId==='string'?{modelId:input.modelId}:{})}))}),{abortSignal:abort.signal});
     for await(const chunk of result.response){const bytes=Buffer.from(chunk);recorded.push(bytes);if(!res.destroyed)res.write(bytes);}
   }catch(error){
@@ -97,11 +99,19 @@ http.createServer(async(req,res)=>{
         if(active.size)return json(res,409,{error:'Wait for the current run to finish before changing inventory.'});
         const cfg=await config();await checkAccount();
         // Changes exactly one fictional offer in Onward, never Meridian data.
-        const result=await rds.send(new ExecuteStatementCommand({resourceArn:cfg.clusterArn,
-          secretArn:'arn:aws:secretsmanager:us-east-1:619763002613:secret:meridian-demo-credentials-W0pH9X',
+        const secretArn='arn:aws:secretsmanager:us-east-1:619763002613:secret:meridian-demo-credentials-W0pH9X';
+        const result=await rds.send(new ExecuteStatementCommand({resourceArn:cfg.clusterArn,secretArn,
           database:'onward',sql:"UPDATE offers SET seats=:seats,updated_at=now() WHERE id='AX218' RETURNING id,seats,updated_at::text",
           parameters:[{name:'seats',value:{longValue:input.soldOut?0:4}}],formatRecordsAs:'JSON'}));
-        cachedHealth=null;return json(res,200,{offer:JSON.parse(result.formattedRecords)[0],requestId:result.$metadata.requestId});
+        let hotels=null;
+        if(!input.soldOut){
+          // Restoring availability also returns rehearsal bookings' rooms to the seeded counts.
+          const seeded=JSON.parse(await readFile(resolve(root,'data/travel.json'),'utf8')).hotels.map(h=>({id:h.id,rooms:h.rooms}));
+          const rooms=await rds.send(new ExecuteStatementCommand({resourceArn:cfg.clusterArn,secretArn,database:'onward',
+            sql:"UPDATE hotels h SET rooms=v.rooms FROM json_to_recordset(CAST(:rooms AS json)) AS v(id text,rooms integer) WHERE h.id=v.id RETURNING h.id,h.rooms",parameters:[{name:'rooms',value:{stringValue:JSON.stringify(seeded)}}],formatRecordsAs:'JSON'}));
+          hotels=JSON.parse(rooms.formattedRecords);
+        }
+        cachedHealth=null;return json(res,200,{offer:JSON.parse(result.formattedRecords)[0],hotels,requestId:result.$metadata.requestId});
       }
     }
     if(req.method!=='GET')return json(res,405,{error:'Method not allowed.'});
