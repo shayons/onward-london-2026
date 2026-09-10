@@ -229,7 +229,8 @@ def policy_engine(cfg, gateway_details):
             time.sleep(15)
 
     associate('LOG_ONLY')
-    existing = {p['name']: p for p in control.list_policy_summaries(policyEngineId=engine_id).get('policySummaries', [])}
+    listed = control.list_policy_summaries(policyEngineId=engine_id)
+    existing = {p['name']: p for p in listed.get('policies', listed.get('policySummaries', []))}
     policy_ids = {}
     for name, statement in cedar(cfg).items():
         definition = {'cedar': {'statement': statement}}
