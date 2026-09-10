@@ -243,7 +243,10 @@ def planner_prompt(request, session, confirmed, selection):
              'copying every number exactly; then briefly the rejected late flight and short connection if present. '
              'A seat preference is not an assignment; only mention an available preferred seat when selected.seat.matches is true. '
              'If travellerContext lists allergies, state that catering is unverified and carrier confirmation is required. '
-             'If there is no selection, explain no fit using minimumFeasiblePence and the budget without relaxing either. '
+             'If there is no selection, say plainly that nothing fits the current budget, name only the minimum feasible complete price and its bundle '
+             '(convert minimumFeasiblePence to pounds) and the constraint that excludes the cheaper routes, and do not relax the budget. '
+             'Write every price in pounds, for example £470; never show pence integers. '
+             'Answer only the current request: do not restate itineraries, prices or budgets from earlier turns unless the traveller asks about them. '
              'Use [4] for prices, [5] for route feasibility and [3] for preferences. Never imply a booking has been made unless book_trip succeeded. '
              'Do not recommend anything absent from the tool results. The only permitted closing question is: Would you prefer an earlier arrival?')
     if selection:
