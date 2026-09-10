@@ -1,0 +1,26 @@
+[
+  {
+    "name": "aurora",
+    "source": "/Users/shayons/Downloads/aws-amazon-aurora.svg"
+  },
+  {
+    "name": "agentcore",
+    "source": "/Users/shayons/Downloads/Arch_Amazon-Bedrock-AgentCore_16/Arch_Amazon-Bedrock-AgentCore_64.svg"
+  },
+  {
+    "name": "bedrock",
+    "source": "/Users/shayons/Downloads/Amazon-Bedrock_Icons/Icon-Architecture/64/Arch_Amazon-Bedrock_64.svg"
+  },
+  {
+    "name": "neptune",
+    "source": "/Users/shayons/Downloads/Microsoft-PPTx-toolkits_07312026.1c286c4a809a3cf2902c88ff63bf7dd1fa3cd55d/AWS-Architecture-Icons-Deck_For-Light-BG_07312026.pptx",
+    "entry": "ppt/media/image330.svg",
+    "slide": 80
+  },
+  {
+    "name": "s3",
+    "source": "/Users/shayons/Downloads/Microsoft-PPTx-toolkits_07312026.1c286c4a809a3cf2902c88ff63bf7dd1fa3cd55d/AWS-Architecture-Icons-Deck_For-Light-BG_07312026.pptx",
+    "entry": "ppt/media/image797.svg",
+    "slide": 154
+  }
+]

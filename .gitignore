@@ -1,0 +1,14 @@
+node_modules/
+.venv/
+.local/
+.build/
+__pycache__/
+*.pyc
+.env
+.env.*
+!.env.example
+infra/published.json
+logs/
+.DS_Store
+grok.zip
+.impeccable/review/

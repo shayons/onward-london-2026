@@ -1,0 +1,88 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "bedrock:InvokeModel",
+        "bedrock:InvokeModelWithResponseStream"
+      ],
+      "Resource": [
+        "arn:aws:bedrock:us-east-1:619763002613:inference-profile/us.anthropic.claude-sonnet-5",
+        "arn:aws:bedrock:us-east-1:619763002613:inference-profile/us.anthropic.claude-opus-5",
+        "arn:aws:bedrock:us-east-1:619763002613:inference-profile/us.anthropic.claude-haiku-4-5-20251001-v1:0",
+        "arn:aws:bedrock:us-east-1:619763002613:inference-profile/us.openai.gpt-5.6-luna",
+        "arn:aws:bedrock:us-*::foundation-model/anthropic.claude-sonnet-5",
+        "arn:aws:bedrock:us-*::foundation-model/anthropic.claude-opus-5",
+        "arn:aws:bedrock:us-*::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0",
+        "arn:aws:bedrock:us-*::foundation-model/openai.gpt-5.6-luna",
+        "arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v2:0"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "rds-data:ExecuteStatement"
+      ],
+      "Resource": "arn:aws:rds:us-east-1:619763002613:cluster:meridian-demo"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:GetSecretValue"
+      ],
+      "Resource": "arn:aws:secretsmanager:us-east-1:619763002613:secret:onward/london-2026/database-reader-ivrckH"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:GetObjectVersion"
+      ],
+      "Resource": "arn:aws:s3:::onward-london-2026-619763002613-us-east-1/*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListBucket"
+      ],
+      "Resource": "arn:aws:s3:::onward-london-2026-619763002613-us-east-1"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "neptune-graph:ReadDataViaQuery"
+      ],
+      "Resource": "arn:aws:neptune-graph:us-east-1:619763002613:graph/g-rwi3whrid6"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "bedrock-agentcore:CreateEvent",
+        "bedrock-agentcore:ListEvents",
+        "bedrock-agentcore:RetrieveMemoryRecords",
+        "bedrock-agentcore:ListMemoryRecords",
+        "bedrock-agentcore:GetMemoryRecord"
+      ],
+      "Resource": "arn:aws:bedrock-agentcore:us-east-1:619763002613:memory/onward_london_2026-daPhExCkem"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents",
+        "logs:DescribeLogStreams"
+      ],
+      "Resource": "arn:aws:logs:us-east-1:619763002613:log-group:/aws/bedrock-agentcore/runtimes/onward_london_2026*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "xray:PutTraceSegments",
+        "xray:PutTelemetryRecords"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

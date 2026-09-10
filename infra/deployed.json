@@ -1,0 +1,32 @@
+{
+  "region": "us-east-1",
+  "accountId": "619763002613",
+  "clusterArn": "arn:aws:rds:us-east-1:619763002613:cluster:meridian-demo",
+  "clusterId": "meridian-demo",
+  "database": "onward",
+  "modelId": "us.anthropic.claude-sonnet-5",
+  "embeddingModelId": "amazon.titan-embed-text-v2:0",
+  "secretArn": "arn:aws:secretsmanager:us-east-1:619763002613:secret:onward/london-2026/database-reader-ivrckH",
+  "bucket": "onward-london-2026-619763002613-us-east-1",
+  "memoryId": "onward_london_2026-daPhExCkem",
+  "memoryArn": "arn:aws:bedrock-agentcore:us-east-1:619763002613:memory/onward_london_2026-daPhExCkem",
+  "graphId": "g-rwi3whrid6",
+  "graphArn": "arn:aws:neptune-graph:us-east-1:619763002613:graph/g-rwi3whrid6",
+  "logKeyArn": "arn:aws:kms:us-east-1:619763002613:key/dab78532-7cda-4ab3-88f8-d67b53bc1135",
+  "roleArn": "arn:aws:iam::619763002613:role/OnwardLondon2026Runtime",
+  "memorySeedEventId": "0000001788885138385#a5bea0c7",
+  "runtimeId": "onward_london_2026-Jy18RJFzmb",
+  "runtimeArn": "arn:aws:bedrock-agentcore:us-east-1:619763002613:runtime/onward_london_2026-Jy18RJFzmb",
+  "runtimeVersion": "10",
+  "artifactVersion": "zsbSpTa5nzm8_qWdNtBoaRIAAHmrGLG5",
+  "logGroup": "/aws/bedrock-agentcore/runtimes/onward_london_2026-Jy18RJFzmb-DEFAULT",
+  "seatPreferenceSeedEventId": "0000001788899650980#e4c3f163",
+  "selectableModels": {
+    "us.anthropic.claude-sonnet-5": "Claude Sonnet 5",
+    "us.anthropic.claude-opus-5": "Claude Opus 5",
+    "us.anthropic.claude-haiku-4-5-20251001-v1:0": "Claude Haiku 4.5",
+    "us.openai.gpt-5.6-luna": "GPT-5.6 Luna"
+  },
+  "memoryShowcaseEventId": "0000001788963707009#b80aeed1",
+  "memoryShowcaseSessionId": "onward-memory-showcase-2026"
+}

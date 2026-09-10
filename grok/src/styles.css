@@ -1,0 +1,124 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@theme {
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Libre Caslon Text", "Palatino Linotype", Palatino, serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --color-bg: #f7f4ef;
+  --color-paper: #fffcf7;
+  --color-ink: #1c1917;
+  --color-muted: #6f675f;
+  --color-subtle: #8a8278;
+  --color-line: #e4ddd3;
+  --color-line-strong: #d3c9bb;
+  --color-accent: #7a2e3a;
+  --color-accent-fg: #fffcf7;
+  --color-accent-soft: #f3e6e4;
+  --color-ok: #2f5d45;
+  --color-warn: #8a5a24;
+  --color-danger: #8f2d2d;
+  --color-chip: #efe8df;
+
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+
+  --shadow-border:
+    0 0 0 1px rgb(28 25 23 / 0.06),
+    0 1px 2px -1px rgb(28 25 23 / 0.06),
+    0 2px 8px 0 rgb(28 25 23 / 0.04);
+  --shadow-border-hover:
+    0 0 0 1px rgb(28 25 23 / 0.08),
+    0 1px 2px -1px rgb(28 25 23 / 0.08),
+    0 8px 24px 0 rgb(28 25 23 / 0.06);
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html,
+  body,
+  #app {
+    min-height: 100dvh;
+    background: var(--color-bg);
+    color: var(--color-ink);
+  }
+
+  body {
+    font-family: var(--font-sans);
+    font-feature-settings: "ss01" on, "cv11" on;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+    font-family: var(--font-display);
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  img.photo {
+    outline: 1px solid rgb(28 25 23 / 0.1);
+    outline-offset: -1px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.stagger-in > * {
+  animation: rise 420ms var(--ease-out) both;
+}
+.stagger-in > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-in > *:nth-child(2) { animation-delay: 50ms; }
+.stagger-in > *:nth-child(3) { animation-delay: 100ms; }
+.stagger-in > *:nth-child(4) { animation-delay: 150ms; }
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.pulse-dot {
+  animation: pulse-dot 1.4s ease-in-out infinite;
+}
+
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(28 25 23 / 0.18) transparent;
+}

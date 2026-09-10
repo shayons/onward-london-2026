@@ -1,0 +1,38 @@
+{
+  "url": "http://127.0.0.1:8081/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "Onward",
+      "hasCanvas": false,
+      "bodyTextLen": 1041,
+      "bodyTextHash": "9e64ca9a15f16f121162091689c044bb135d1614f8d4c86377404e35814f1b2f",
+      "bodyTextPrefix": "O Onward Travel concierge · semantic layer Wed, 9 Sept 2026, 18:",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "Onward",
+      "hasCanvas": false,
+      "bodyTextLen": 608,
+      "bodyTextHash": "fd0830e350e1dd80c53b93d160267eae5c1a19b59cab817326d975094301c621",
+      "bodyTextPrefix": "O Onward Travel concierge · semantic layer Wed, 9 Sept 2026, 18:",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-built.json",
+  "divergesFromBaseline": false,
+  "baselineReasons": []
+}

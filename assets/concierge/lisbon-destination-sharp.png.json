@@ -1,0 +1,7 @@
+{
+  "prompt": "Edit target: the attached Lisbon panorama, used as the Onward travel concierge hero. Create a high-resolution restoration of this exact scene, ideally 3840 x 2160 landscape for a large high-density monitor. Preserve the camera viewpoint, skyline, terracotta rooftops, weathered cream/yellow/pink buildings, river, bridge position, warm sunset palette and realistic editorial photograph style. Change only image clarity: bring the roof tiles, masonry, windows and bridge into clean, natural focus across the frame, reduce the soft low-resolution look, maintain believable fine architectural texture and deep depth of field. Do not add objects, people, buildings, text, logos, borders or UI. Do not alter the composition or exaggerate sharpening with halos. This is an AI-generated illustrative destination, not an authoritative photograph.",
+  "source": "Built-in image generation tool, 2026-09-08",
+  "editTarget": "assets/concierge/lisbon-destination.jpg",
+  "actualDimensions": "1672 × 941",
+  "note": "Clarity-restored illustration; requested 3840 × 2160, tool returned 1672 × 941. Not claimed as 4K."
+}
