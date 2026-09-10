@@ -198,7 +198,8 @@ function layerResolution(layer,events){
     detail:'The reviewed pattern guides the bounded calls; current Aurora records establish availability and price before the answer is written.'
   };
 }
-function renderTraces(){
+function updateTraceHeading(){const governed=state.visible.some(e=>e.type==='trace'&&e.layer===SEMANTIC);const h=document.querySelector('.trace-heading h1'),p=document.querySelector('.trace-heading p');if(!h)return;h.textContent=governed?'Six responsibilities, one governed action':'Six semantic responsibilities';p.textContent=governed?'One question resolved; one booking decided by policy.':'One question, progressively resolved.';}
+function renderTraces(){updateTraceHeading();
  const shown=traceEvents(),scroller=$('trace-scroll'),scroll=scroller.scrollTop;
  $('layers').innerHTML=layers.map((l,i)=>{
   const ev=shown.filter(e=>e.type==='trace'&&e.layer===i),last=ev.at(-1),refused=ev.some(e=>e.error),done=!refused&&ev.some(e=>e.phase==='result'),open=state.openLayer===i,error=shown.findLast(e=>e.type==='error'&&e.layer===i);
