@@ -24,7 +24,7 @@ Dependency packaging now uses explicit Python locks and clean deployment builds.
 
 ## Verification
 
-- **76 automated tests pass:** 29 JavaScript and 47 Python, including real disposable PostgreSQL reservation tests. No tests were skipped.
+- **79 automated tests pass:** 30 JavaScript and 49 Python, including real disposable PostgreSQL reservation tests. No tests were skipped.
 - The final static design check reports no primary findings; 188 existing token advisories remain. The palette exception stays scoped to `index.html`, and the decorative status pulses remain removed.
 - JavaScript syntax, Python compilation and Git whitespace checks pass. `npm audit --omit=dev` reports no known vulnerabilities.
 - The live baseline selects **AX218 + Pátio House, £490 complete, at the venue by 12:25**. It rejects AX404's **14:40** venue arrival and ME615's **45-minute connection against a 60-minute minimum**.
@@ -68,3 +68,18 @@ All suppliers, people, prices, availability and reservations are fictional fixtu
 The itinerary card and source evidence are authoritative. Other generated proposal prose can still paraphrase imprecisely; this review does not establish general hallucination prevention. The three-hotel dataset demonstrates retrieval decisions, not production-scale search performance. Shared demo authentication and the fixed Alex actor are not a multi-user authorisation design.
 
 The existing separation between candidate retrieval and hard feasibility checks is sound. The data-preparation view, source references and presenter controls support the talk well, and the revised script keeps the live sequence bounded.
+## Second review — 12 September 2026
+
+A follow-up pass over the same working tree, before it was committed.
+
+| Priority | Finding and effect | Change and evidence |
+|---|---|---|
+| P2 | `pounds()` stripped trailing zero characters rather than a redundant `.00`, so £649.90 read "£649.9" and £12.50 read "£12.5". Seeded prices are round pounds, but `budgetPence` comes from what the traveller types, and the browser's own formatter disagreed. | Render whole pounds without decimals and every other amount with both, as `money()` does. Two regression tests fail against the old formatter. See `backend/main.py`, `tests/test_agent.py`. |
+| P3 | `app.js` imported `presentation.js` under the previous cache token, and the disambiguation heading read "Understand the intent" while README, DEMO-SCRIPT, DESIGN and this document all said "Understand the words". | One token across `index.html` and `app.js`; the heading now matches the documents and the layer's own question. |
+| P3 | `tests/test_agent.py` placed its `__main__` guard above a later test class, so running the file directly executed 15 of its 16 tests. | Guard moved to the end of the file; direct runs and discovery now agree. |
+| P3 | `select_itinerary` raised a bare `StopIteration` when an offer had no current price row, and `apply()` read layer-2 evidence without the optional chaining used around it. | A named error that says what to do, and consistent optional access. See `backend/tools.py`, `app.js`. |
+| P3 | The published site served none of the security headers the local server sends, and a 98 MB deck plus 112 MB of presentation working files sat untracked and un-ignored beside the repository. | One `CONTENT_SECURITY_POLICY` constant in `api-shared.mjs` drives both the local response and a CloudFront response-headers policy carrying nosniff, HSTS, frame-deny and a referrer policy. `.gitignore` covers the deck and its working directory. |
+
+Also removed: nine orphaned font files and two superseded rasters that no source referenced, the unexecuted `pipeline.js` and `resolution.css`, four write-only fields in `app.js` and nine unused imports. `engine.js` stays: it re-derives the trip arithmetic independently, which is what pins the numbers the talk quotes. Provenance sidecars and the edit source recorded by `lisbon-destination-sharp.png.json` remain in the repository but are no longer uploaded; the site bucket now holds exactly the 35 objects the publisher produces.
+
+Verified after the change: 79 tests pass, `ruff --select F,E9` is clean, the local server serves the shared policy, and the published site returns all five security headers, 401 without credentials, matching hashes for every static file, all three routes and six of six AWS services.
