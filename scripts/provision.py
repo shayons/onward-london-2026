@@ -2,7 +2,6 @@
 import json
 import secrets
 import string
-from datetime import datetime, timezone
 from pathlib import Path
 
 import boto3

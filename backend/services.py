@@ -13,6 +13,9 @@ CONFIG_PATH = Path(os.environ.get('ONWARD_CONFIG', Path(__file__).resolve().pare
 if not CONFIG_PATH.exists():
     CONFIG_PATH = Path(__file__).resolve().parents[1] / 'infra/deployed.json'
 SETTINGS = json.loads(CONFIG_PATH.read_text())
+if (SETTINGS['database'] != 'onward' or SETTINGS['accountId'] != '619763002613'
+        or SETTINGS['clusterArn'] != 'arn:aws:rds:us-east-1:619763002613:cluster:meridian-demo'):
+    raise RuntimeError('Onward must use its isolated database in the authorised demo account.')
 SESSION = boto3.Session(region_name=SETTINGS['region'])
 CONFIG = Config(connect_timeout=8, read_timeout=180, retries={'total_max_attempts': 3, 'mode': 'standard'})
 DB = SESSION.client('rds-data', config=CONFIG)
@@ -106,14 +109,31 @@ RETURN t.minutes AS minutes,t.pricePence AS price_pence,t.source AS source_id,v.
 WALK_QUERY = """MATCH (h:OnwardHotel)-[w:WALK_TO]->(v:OnwardVenue {id:$venue})
 RETURN h.id AS hotel_id,w.minutes AS minutes"""
 
-# One atomic statement: the booking row exists only if a seat and a room were still available.
-BOOKING_QUERY = """WITH offer AS (
- UPDATE offers SET seats=seats-1,updated_at=now() WHERE id=:offer AND seats>0 RETURNING id,seats
-), hotel AS (
- UPDATE hotels SET rooms=rooms-1 WHERE id=:hotel AND rooms>0 RETURNING id,rooms
+# Lock both inventory rows before checking them. Only an inserted booking may consume stock.
+# A unique session_id makes retries and simultaneous confirmations reserve at most once.
+BOOKING_QUERY = """WITH available AS MATERIALIZED (
+ SELECT o.id AS offer_id,h.id AS hotel_id
+ FROM offers o CROSS JOIN hotels h
+ WHERE o.id=:offer AND h.id=:hotel AND o.seats>0 AND h.rooms>0
+   AND o.carrier='Aster Air' AND o.seat_selection_included=true
+   AND o.fare_pence+o.bag_pence*:bags+h.night_pence*:nights+:transfer=:total
+   AND :total<:budget
+ FOR UPDATE OF o,h
 ), booked AS (
  INSERT INTO bookings(id,session_id,traveller_id,offer_id,hotel_id,total_pence,policy_decision)
- SELECT :booking,:session,:traveller,offer.id,hotel.id,CAST(:total AS integer),:policy FROM offer,hotel
+ SELECT :booking,:session,:traveller,offer_id,hotel_id,CAST(:total AS integer),:policy FROM available
+ ON CONFLICT (session_id) DO NOTHING
  RETURNING id,offer_id,hotel_id,total_pence,created_at::text AS created_at
+), offer AS (
+ UPDATE offers o SET seats=o.seats-1,updated_at=now() FROM booked
+ WHERE o.id=booked.offer_id RETURNING o.id,o.seats
+), hotel AS (
+ UPDATE hotels h SET rooms=h.rooms-1 FROM booked
+ WHERE h.id=booked.hotel_id RETURNING h.id,h.rooms
 )
 SELECT booked.*,offer.seats AS seats_left,hotel.rooms AS rooms_left FROM booked,offer,hotel"""
+
+BOOKING_LOOKUP = """SELECT b.id,b.offer_id,b.hotel_id,b.total_pence,b.created_at::text AS created_at,
+ o.seats AS seats_left,h.rooms AS rooms_left
+ FROM bookings b JOIN offers o ON o.id=b.offer_id JOIN hotels h ON h.id=b.hotel_id
+ WHERE b.session_id=:session ORDER BY b.created_at LIMIT 1"""

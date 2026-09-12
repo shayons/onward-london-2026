@@ -1,4 +1,3 @@
-import copy
 import json
 import sys
 import unittest
@@ -56,6 +55,40 @@ class JourneyRules(unittest.TestCase):
         self.transfer = {'minutes': 35, 'price_pence': 3500}
         self.walks = []
         self.assertIsNone(self.plan()['selected'])
+
+    def test_unavailable_transfer_fails_even_when_the_edge_exists(self):
+        self.transfer['available'] = False
+        self.assertIsNone(self.plan()['selected'])
+
+    def test_latest_price_snapshot_can_remove_a_flight(self):
+        for price in self.prices:
+            if price['offer_id'] == 'AX218':
+                price['seats'] = 0
+        self.assertEqual(self.plan()['selected']['id'], 'ME330:patio-house')
+
+    def test_duplicate_leg_sequence_is_not_a_valid_path(self):
+        self.legs[-1]['sequence'] = 0
+        route = next(route for route in self.plan()['routes'] if route['offer']['id'] == 'ME615')
+        self.assertTrue(any('missing or repeated' in reason for reason in route['reasons']))
+
+    def test_invalid_calendar_date_and_time_are_rejected(self):
+        for fields in ({'travelDate': '2026-02-30'}, {'deadline': '24:30'}, {'travelDate': 'tomorrow'}):
+            with self.subTest(fields=fields), self.assertRaises(ValueError):
+                TripRequest(**fields)
+
+    def test_departure_date_uses_the_origin_time_zone(self):
+        leg = next(leg for leg in self.legs if leg['offer_id'] == 'AX218')
+        leg.update(depart='2026-09-14T23:30:00+00:00', arrive='2026-09-15T01:00:00+00:00')
+        route = next(route for route in self.plan()['routes'] if route['offer']['id'] == 'AX218')
+        self.assertTrue(route['feasible'])
+        self.assertEqual(route['venueArrival'], '2026-09-15T03:20:00+01:00')
+
+    def test_extra_nights_cannot_use_the_single_night_inventory(self):
+        with self.assertRaisesRegex(ValueError, 'one hotel night'):
+            self.plan(nights=2)
+
+    def test_seat_count_cannot_be_negative(self):
+        self.assertFalse(seat_option({'seats': 4, 'aisle_seats': -1, 'seat_selection_included': True}, 'aisle')['matches'])
 
     def test_all_selected_bundles_obey_contract(self):
         for priority in ('balanced', 'earliest', 'cheapest'):

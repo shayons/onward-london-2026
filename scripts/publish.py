@@ -8,18 +8,19 @@ rewrites the client-side /prepare route. Re-running updates code and invalidates
 import base64
 import json
 import mimetypes
+import re
 import secrets
 import shutil
 import time
 import zipfile
-from pathlib import Path
 
-from provision import ACCOUNT, ADMIN_SECRET, CONFIG, REGION, ROOT, SESSION, TAGS
+from provision import ACCOUNT, CONFIG, REGION, ROOT, SESSION, TAGS
 
 PUBLISHED = ROOT / 'infra' / 'published.json'
 NAME = 'onward-london-2026'
-STATIC = ['index.html', 'app.js', 'presentation.js', 'style.css',
+STATIC = ['index.html', 'app.js', 'presentation.js', 'stream.js', 'answer-reveal.js', 'style.css',
           'data/travel.js', 'data/travel.json', 'data/README.md']
+UNSERVED_ASSETS = {'lisbon-destination.jpg'}   # the edit target recorded by lisbon-destination-sharp.png.json
 CACHING_DISABLED = '4135ea2d-6df8-44a3-9df3-4b5a84be39ad'
 CACHING_OPTIMIZED = '658327ea-f89d-4fab-a63d-7e88639e58f6'
 ALL_VIEWER_EXCEPT_HOST = 'b689b0a8-53d0-40ab-baf2-68738e2966ac'
@@ -55,7 +56,9 @@ def site_bucket(published):
 
 def upload_static(bucket):
     files = [ROOT / name for name in STATIC]
-    files += [p for p in (ROOT / 'assets').rglob('*') if p.is_file() and p.name != '.DS_Store']
+    # Provenance sidecars and the edit sources they cite stay in the repository; the site never requests them.
+    files += [p for p in (ROOT / 'assets').rglob('*')
+              if p.is_file() and p.name != '.DS_Store' and p.suffix != '.json' and p.name not in UNSERVED_ASSETS]
     uploaded = 0
     for path in sorted(set(files)):
         key = str(path.relative_to(ROOT))
@@ -85,7 +88,7 @@ def execution_role(published):
         {'Effect': 'Allow', 'Action': ['bedrock-agentcore:GetMemory'], 'Resource': deployed['memoryArn']},
         {'Effect': 'Allow', 'Action': ['bedrock-agentcore:GetGateway'], 'Resource': deployed['gatewayArn']},
         {'Effect': 'Allow', 'Action': ['rds-data:ExecuteStatement'], 'Resource': deployed['clusterArn']},
-        {'Effect': 'Allow', 'Action': ['secretsmanager:GetSecretValue'], 'Resource': [deployed['secretArn'], ADMIN_SECRET]},
+        {'Effect': 'Allow', 'Action': ['secretsmanager:GetSecretValue'], 'Resource': [deployed['secretArn'], deployed['writerSecretArn']]},
         {'Effect': 'Allow', 'Action': ['neptune-graph:GetGraph'], 'Resource': deployed['graphArn']},
         {'Effect': 'Allow', 'Action': ['s3:GetObject'], 'Resource': f"arn:aws:s3:::{deployed['bucket']}/*"},
         {'Effect': 'Allow', 'Action': ['sts:GetCallerIdentity'], 'Resource': '*'},
@@ -108,6 +111,7 @@ def package():
     shutil.rmtree(build, ignore_errors=True)
     build.mkdir(parents=True)
     shutil.copy2(ROOT / 'edge' / 'handler.mjs', build / 'handler.mjs')
+    shutil.copy2(ROOT / 'api-shared.mjs', build / 'api-shared.mjs')
     shutil.copy2(ROOT / 'infra' / 'deployed.json', build / 'deployed.json')
     shutil.copy2(ROOT / 'data' / 'travel.json', build / 'travel.json')
     shutil.copytree(ROOT / 'node_modules', build / 'node_modules')
@@ -122,7 +126,7 @@ def package():
 def lambda_function(published, role_arn, artifact):
     name = f'{NAME}-api'
     secret = published.setdefault('edgeSecret', secrets.token_urlsafe(32))
-    env = {'Variables': {'ONWARD_EDGE_SECRET': secret, 'ONWARD_SCENARIO_SECRET': ADMIN_SECRET,
+    env = {'Variables': {'ONWARD_EDGE_SECRET': secret,
                          'NODE_OPTIONS': '--enable-source-maps'}}
     payload = artifact.read_bytes()
     try:
@@ -192,6 +196,42 @@ def viewer_function(published, user, password):
     return arn
 
 
+def content_security_policy():
+    """The published site enforces the same policy the local server sends, read from its one definition."""
+    match = re.search(r'CONTENT_SECURITY_POLICY = "([^"]+)"', (ROOT / 'api-shared.mjs').read_text())
+    if not match:
+        raise RuntimeError('Could not read CONTENT_SECURITY_POLICY from api-shared.mjs.')
+    return match.group(1)
+
+
+def response_headers_policy(published):
+    """Security headers for the site origin. The API origin sets its own on each JSON response."""
+    name = f'{NAME}-security'
+    config = {'Name': name, 'Comment': 'Onward published site security headers',
+        'SecurityHeadersConfig': {
+            'ContentSecurityPolicy': {'Override': True, 'ContentSecurityPolicy': content_security_policy()},
+            'ContentTypeOptions': {'Override': True},
+            'FrameOptions': {'Override': True, 'FrameOption': 'DENY'},
+            'ReferrerPolicy': {'Override': True, 'ReferrerPolicy': 'strict-origin-when-cross-origin'},
+            'StrictTransportSecurity': {'Override': True, 'AccessControlMaxAgeSec': 31536000,
+                                        'IncludeSubdomains': False, 'Preload': False}}}
+    policy_id = published.get('responseHeadersPolicyId')
+    if not policy_id:
+        for item in cloudfront.list_response_headers_policies(Type='custom').get(
+                'ResponseHeadersPolicyList', {}).get('Items', []):
+            if item['ResponseHeadersPolicy']['ResponseHeadersPolicyConfig']['Name'] == name:
+                policy_id = item['ResponseHeadersPolicy']['Id']
+                break
+    if policy_id:
+        current = cloudfront.get_response_headers_policy(Id=policy_id)
+        cloudfront.update_response_headers_policy(Id=policy_id, IfMatch=current['ETag'],
+                                                  ResponseHeadersPolicyConfig=config)
+    else:
+        policy_id = cloudfront.create_response_headers_policy(
+            ResponseHeadersPolicyConfig=config)['ResponseHeadersPolicy']['Id']
+    published['responseHeadersPolicyId'] = policy_id
+    return policy_id
+
 def origin_access_control(published, key, origin_type, description):
     field = 'oacId' if origin_type == 's3' else 'lambdaOacId'
     if published.get(field):
@@ -218,7 +258,7 @@ def allow_cloudfront(function_name, distribution_arn):
             Principal='cloudfront.amazonaws.com', SourceArn=distribution_arn)
 
 
-def distribution_config(bucket, lambda_host, oac_id, lambda_oac_id, function_arn, secret):
+def distribution_config(bucket, lambda_host, oac_id, lambda_oac_id, function_arn, secret, headers_id):
     return {
         'CallerReference': f'{NAME}-{int(time.time())}',
         'Comment': 'Onward - semantic layer travel concierge (Data For AI Day London)',
@@ -243,6 +283,7 @@ def distribution_config(bucket, lambda_host, oac_id, lambda_oac_id, function_arn
             'AllowedMethods': {'Quantity': 2, 'Items': ['GET', 'HEAD'],
                                'CachedMethods': {'Quantity': 2, 'Items': ['GET', 'HEAD']}},
             'CachePolicyId': CACHING_OPTIMIZED, 'Compress': True,
+            'ResponseHeadersPolicyId': headers_id,
             'FunctionAssociations': {'Quantity': 1, 'Items': [
                 {'FunctionARN': function_arn, 'EventType': 'viewer-request'}]}},
         'CacheBehaviors': {'Quantity': 1, 'Items': [{
@@ -257,8 +298,8 @@ def distribution_config(bucket, lambda_host, oac_id, lambda_oac_id, function_arn
     }
 
 
-def distribution(published, bucket, lambda_host, oac_id, lambda_oac_id, function_arn, secret):
-    config = distribution_config(bucket, lambda_host, oac_id, lambda_oac_id, function_arn, secret)
+def distribution(published, bucket, lambda_host, oac_id, lambda_oac_id, function_arn, secret, headers_id):
+    config = distribution_config(bucket, lambda_host, oac_id, lambda_oac_id, function_arn, secret, headers_id)
     if published.get('distributionId'):
         current = cloudfront.get_distribution_config(Id=published['distributionId'])
         # Merge the fields this script owns into the live config. CloudFront requires every
@@ -329,7 +370,8 @@ def main():
     function_arn = viewer_function(published, user, password)
     oac_id = origin_access_control(published, f'{NAME}-site', 's3', 'Onward static site')
     lambda_oac_id = origin_access_control(published, f'{NAME}-api', 'lambda', 'Onward published API')
-    distribution_id, domain = distribution(published, bucket, lambda_host, oac_id, lambda_oac_id, function_arn, secret)
+    headers_id = response_headers_policy(published)
+    distribution_id, domain = distribution(published, bucket, lambda_host, oac_id, lambda_oac_id, function_arn, secret, headers_id)
     allow_cloudfront(published['functionName'], published['distributionArn'])
     assert_not_public(published['functionName'], bucket)
     published['url'] = f'https://{domain}'
@@ -337,7 +379,7 @@ def main():
     published['artifactMB'] = round(artifact.stat().st_size / 1048576, 1)
     save(published)
     print(json.dumps({'url': published['url'], 'distributionId': distribution_id, 'files': uploaded,
-                      'user': user, 'password': password, 'artifactMB': published['artifactMB']}, indent=2))
+                      'credentialsFile': str(PUBLISHED), 'artifactMB': published['artifactMB']}, indent=2))
 
 
 if __name__ == '__main__':

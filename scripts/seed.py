@@ -1,9 +1,8 @@
 """Prepare fictional source data into Aurora, Neptune, S3 and AgentCore Memory."""
 import json
 from datetime import datetime, timezone
-from pathlib import Path
 
-from provision import CONFIG, ROOT, SESSION, sql
+from provision import ACCOUNT, CONFIG, ROOT, SESSION, sql
 
 
 def parameters(values):
@@ -11,6 +10,8 @@ def parameters(values):
 
 
 def main():
+    if SESSION.client('sts', config=CONFIG).get_caller_identity()['Account'] != ACCOUNT:
+        raise RuntimeError('Wrong AWS account; expected the authorised Onward account.')
     cfg = json.loads((ROOT / 'infra/deployed.json').read_text())
     data = json.loads((ROOT / 'data/travel.json').read_text())
     bedrock = SESSION.client('bedrock-runtime', config=CONFIG)

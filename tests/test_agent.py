@@ -84,6 +84,43 @@ class StoryOrder(unittest.TestCase):
         hooks.before(wrong)
         self.assertIn('Call book_trip next', wrong.cancel_tool)
 
+    def test_planning_never_unlocks_booking(self):
+        hooks = main.TraceHooks(main.asyncio.Queue())
+        hooks.done = set(range(1, 6))
+        call = self.event('book_trip')
+        hooks.before(call)
+        self.assertIn('separate booking turn', call.cancel_tool)
+
+    def test_model_cannot_change_the_contract_or_confirmation(self):
+        request = main.TripRequest(budgetPence=45000, maxWalkMinutes=10)
+        hooks = main.TraceHooks(main.asyncio.Queue(), request=request)
+        hooks.done = {1, 2, 3, 4}
+        call = self.event('select_itinerary')
+        call.tool_use['input'] = {'budgetPence': 999999, 'maxWalkMinutes': 120}
+        hooks.before(call)
+        self.assertEqual(call.tool_use['input']['budgetPence'], 45000)
+        self.assertEqual(call.tool_use['input']['maxWalkMinutes'], 10)
+        selection = {'flight': 'ME330', 'hotelId': 'patio-house', 'carrier': 'Meridian Europe', 'totalPence': 56400,
+                     'arrivesBeforeDeadline': True, 'seatsAvailable': 3, 'seatSelectionIncluded': True}
+        hooks = main.TraceHooks(main.asyncio.Queue(), booking_turn=True, request=main.TripRequest(),
+                               session='onward-' + 'a' * 32, confirmed=False, selection=selection)
+        call = self.event('book_trip')
+        call.tool_use['input'] = {'travellerConfirmed': True, 'carrier': 'Aster Air', 'totalPence': 1}
+        hooks.before(call)
+        self.assertFalse(call.tool_use['input']['travellerConfirmed'])
+        self.assertEqual(call.tool_use['input']['carrier'], 'Meridian Europe')
+        self.assertEqual(call.tool_use['input']['totalPence'], 56400)
+        second = self.event('book_trip', 't2')
+        hooks.before(second)
+        self.assertTrue(second.cancel_tool)
+
+    def test_unsupported_route_stops_retrieval(self):
+        hooks = main.TraceHooks(main.asyncio.Queue())
+        hooks.supported = False
+        call = self.event('search_hotels')
+        hooks.before(call)
+        self.assertIn('outside the demo inventory', call.cancel_tool)
+
     def test_successful_result_becomes_trace_plus_compact_model_view(self):
         hooks = main.TraceHooks(main.asyncio.Queue())
         call = self.event('resolve_entities')
@@ -100,7 +137,10 @@ class StoryOrder(unittest.TestCase):
         self.assertIn(1, hooks.done)
 
     def test_policy_denial_is_reported_as_a_refused_booking(self):
-        hooks = main.TraceHooks(main.asyncio.Queue(), booking_turn=True)
+        hooks = main.TraceHooks(main.asyncio.Queue(), booking_turn=True, session='onward-' + 'a' * 32,
+                               selection={'flight': 'ME330', 'hotelId': 'patio-house', 'carrier': 'Meridian Europe',
+                                          'totalPence': 56400, 'arrivesBeforeDeadline': True, 'seatsAvailable': 3,
+                                          'seatSelectionIncluded': True})
         call = self.event('book_trip')
         hooks.before(call)
         call.result = {'toolUseId': 't1', 'status': 'error', 'content': [{'text': 'Tool Execution Denied: Tool call not allowed due to policy enforcement [Policy evaluation denied due to onward_airline_rules]'}]}
@@ -114,8 +154,48 @@ class StoryOrder(unittest.TestCase):
         self.assertIsNone(booking['booking'])
 
 
-if __name__ == '__main__':
-    unittest.main()
+class NoMatch(unittest.TestCase):
+    def test_connection_explanation_uses_the_returned_timing_evidence(self):
+        plan = {'request': {'bags': 1}, 'selected': {
+            'route': {'offer': {'id': 'AX218'}, 'legs': [{'depart': '2026-09-15T08:20:00+01:00'}],
+                      'venueArrival': '2026-09-15T12:25:00+01:00'},
+            'hotel': {'name': 'Pátio House', 'walk_minutes': 12}, 'totalPence': 49000},
+            'routes': [{'offer': {'id': 'ME615'},
+                        'reasons': ['MAD connection is 45 minutes; the minimum is 60.']}]}
+        answer = main.checked_proposal(plan, 'The Madrid connection is five minutes too short.')
+        self.assertIn('45 minutes; the minimum is 60', answer)
+        self.assertNotIn('five minutes', answer)
+        self.assertIn('Nothing has been reserved', answer)
+
+    def test_a_proposal_cannot_claim_a_reservation(self):
+        plan = {'request': {'bags': 1}, 'selected': {
+            'route': {'offer': {'id': 'AX218'}, 'legs': [{'depart': '2026-09-15T08:20:00+01:00'}],
+                      'venueArrival': '2026-09-15T12:25:00+01:00'},
+            'hotel': {'name': 'Pátio House', 'walk_minutes': 12}, 'totalPence': 49000}}
+        for text in ("You're booked into Pátio House for £450.", "I've rebooked you onto AX218."):
+            with self.subTest(text=text):
+                answer = main.checked_proposal(plan, text)
+                self.assertIn('proposed itinerary', answer)
+                self.assertIn('Nothing has been reserved', answer)
+                self.assertIn('£490', answer)
+                self.assertNotIn('£450', answer)
+        neutral = 'I suggest AX218 and Pátio House, for £490.'
+        self.assertEqual(main.checked_proposal(plan, neutral), neutral)
+
+    def test_checked_minimum_does_not_become_an_unverified_hotel_suggestion(self):
+        answer = main.no_match_answer({'request': main.TripRequest(budgetPence=45000).model_dump(),
+                                      'minimumFeasiblePence': 47000})
+        self.assertIn('£470', answer)
+        self.assertIn('strictly under £450', answer)
+        self.assertNotIn('quieter', answer)
+        self.assertNotIn('cheaper', answer)
+
+    def test_unknown_minimum_does_not_invent_a_price(self):
+        answer = main.no_match_answer({'request': main.TripRequest(deadline='10:00', maxWalkMinutes=5).model_dump(),
+                                      'minimumFeasiblePence': None})
+        self.assertNotIn('£', answer)
+        self.assertIn('10:00', answer)
+        self.assertIn('5 minutes', answer)
 
 
 class Denials(unittest.TestCase):
@@ -123,3 +203,22 @@ class Denials(unittest.TestCase):
         text = 'Tool execution failed: Tool Execution Denied: Tool call not allowed due to policy enforcement [Policy evaluation denied due to onward_airline_rules-qgjprwr4r_]'
         self.assertTrue(main.friendly_denial(text).startswith('Refused by Cedar policy onward_airline_rules. The airline accepts'))
         self.assertIn('Denied by default', main.friendly_denial('[No policy applies to the request (denied by default).]'))
+
+
+class Money(unittest.TestCase):
+    def test_pence_render_as_the_browser_renders_them(self):
+        self.assertEqual(main.pounds(65000), '£650')
+        self.assertEqual(main.pounds(100000), '£1,000')
+        # A budget of £649.90 must not lose its last penny digit.
+        self.assertEqual(main.pounds(64990), '£649.90')
+        self.assertEqual(main.pounds(12345), '£123.45')
+
+    def test_a_non_round_budget_survives_the_no_match_explanation(self):
+        answer = main.no_match_answer({'request': main.TripRequest(budgetPence=64990).model_dump(),
+                                      'minimumFeasiblePence': 49950})
+        self.assertIn('£499.50', answer)
+        self.assertIn('strictly under £649.90', answer)
+
+
+if __name__ == '__main__':
+    unittest.main()

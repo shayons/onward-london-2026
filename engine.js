@@ -1,7 +1,9 @@
+// Independent fixture checks for the demo arithmetic. The shipped UI does not run this;
+// tests/engine.test.mjs uses it to pin the numbers the talk quotes.
 import {travelData as data} from './data/travel.js';
-export const defaults={memory:true,priority:'balanced',soldOut:false,budgetPence:65000};
-export const formatMoney=pence=>new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(pence/100);
-export const localTime=(stamp,zone='Europe/Lisbon')=>new Intl.DateTimeFormat('en-GB',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:zone}).format(new Date(stamp));
+const defaults={memory:true,priority:'balanced',soldOut:false,budgetPence:65000};
+const formatMoney=pence=>new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP',maximumFractionDigits:0}).format(pence/100);
+const localTime=(stamp,zone='Europe/Lisbon')=>new Intl.DateTimeFormat('en-GB',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:zone}).format(new Date(stamp));
 export const minutesBetween=(a,b)=>(new Date(b)-new Date(a))/60000;
 export function planTrip(options={}) {
   const opts={...defaults,...options};
@@ -32,8 +34,4 @@ export function planTrip(options={}) {
     return a.totalPence-b.totalPence||new Date(a.route.venueArrival)-new Date(b.route.venueArrival);
   });
   return {options:opts,routes,bundles,eligible,selected:eligible[0]||null,deadline:data.trip.deadline};
-}
-export function requestText(options={}) {
-  const o={...defaults,...options};
-  return `My flight has been cancelled. Get me from Heathrow to my Lisbon meeting by 2pm tomorrow, with one hotel night nearby. Keep the outbound flight, checked bag, hotel and airport transfer under ${formatMoney(o.budgetPence)}.${o.priority==='earliest'?' Prioritise the earliest arrival.':o.priority==='cheapest'?' Choose the lowest complete price, even if the hotel is less quiet.':''}`;
 }

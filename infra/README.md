@@ -22,7 +22,7 @@ The connected demo uses Isengard account **619763002613**, region **us-east-1**.
 | CloudWatch log group | `/aws/bedrock-agentcore/runtimes/onward_london_2026-Jy18RJFzmb-DEFAULT` | Structured application events and OpenTelemetry spans, KMS encryption, seven-day retention. Transaction Search is enabled in the account. |
 | KMS key | `dab78532-7cda-4ab3-88f8-d67b53bc1135` | Onward runtime log encryption. |
 
-The runtime and graph use IAM-authenticated public service connectivity for local development. The UI itself is loopback-only, not publicly hosted. The Bedrock US inference profile may execute model calls in other supported US regions.
+The runtime and graph use IAM-authenticated public service connectivity for local development. The local UI binds to loopback. A separate password-protected CloudFront deployment is described below. The Bedrock US inference profile may execute model calls in other supported US regions.
 
 ## Rebuild or update
 
@@ -61,7 +61,7 @@ In a second terminal:
 .venv/bin/python scripts/smoke.py
 ```
 
-For application-only backend edits, `scripts/deploy.py` copies the latest `main.py`, `services.py`, `planner.py`, `models.py` and `gateway_auth.py` into the already prepared dependency package. Tool changes go through `scripts/provision_gateway.py`, which repackages the Lambda and updates the target’s tool schema; policy changes go through the same script. For dependency changes, recreate the target package from the lockfile first. Frontend edits need only a browser refresh.
+For application-only backend edits, `scripts/deploy.py` copies the latest `main.py`, `services.py`, `planner.py`, `models.py`, `gateway_auth.py` and `conversation.py` into a fresh dependency package built from `backend/requirements.lock`. The tools Lambda uses `backend/tools-requirements.lock`. Tool changes go through `scripts/provision_gateway.py`, which repackages the Lambda and updates the target’s tool schema; policy changes go through the same script. For dependency changes, regenerate the corresponding lockfile before deploying. The runtime lock includes Strands, the Memory integration and observability dependencies. Frontend edits need only a browser refresh.
 
 **Seeding is an explicit data reset/upsert operation:** it restores fixture availability, creates new source-object versions, and refreshes embeddings/relationships. Do not run it during a live inventory-change demonstration. It does not delete or reset previously extracted long-term preferences.
 
@@ -71,7 +71,7 @@ The current application is intentionally tied to this account, region and cluste
 
 The topbar connection dialog verifies actual readiness. `.local/verification/` holds complete smoke evidence and `.local/runs/` holds received proxy SSE logs. Neither directory is served to browsers. `.impeccable/review/live/VERIFICATION.md` records the tested outcomes.
 
-The tools Lambda reads with the database reader secret and books with the dedicated writer secret, in one atomic statement that only inserts a booking if a seat and a room remain. Provisioning, seeding and the proxy's fixed AX218 stock action use the existing cluster administrator secret ARN through Data API; they do not retrieve or print the secret value. The model cannot choose a write query; the gateway lists six tools and its policy engine decides whether `book_trip` may run.
+The tools Lambda reads with the database reader secret and books with the dedicated writer secret, in one atomic statement. It locks and checks both inventory rows, inserts a booking once per session, and only then decrements stock. Retries return the existing booking. Policy updates retain ENFORCE mode throughout. Provisioning and seeding use the cluster administrator secret ARN through Data API; they do not print the secret value. Both API proxies now use the isolated Onward writer secret for the fixed stock controls. The published API role has no access to the shared cluster administrator secret. The model cannot choose a write query; the gateway lists six tools and its policy engine decides whether `book_trip` may run.
 
 ## Resource lifetime and retirement
 
@@ -102,4 +102,4 @@ A first revision used a public (`AuthType=NONE`) function URL and was auto-mitig
 account's `lambda_function_policy_block_public_access` control. That path is gone and the
 guard exists so it cannot come back silently.
 
-Credentials and identifiers live in `infra/published.json`, which is git-ignored.
+Credentials and identifiers live in `infra/published.json`, which is git-ignored. Publishing prints the file location, never the password. The flight toggle changes AX218 only; the separate Restore demo stock action restores all fictional seats and rooms without deleting booking records.

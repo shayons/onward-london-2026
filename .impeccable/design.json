@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-08T20:28:53.388580+00:00",
+  "generatedAt": "2026-09-10T20:55:05.028254+00:00",
   "title": "Design System: Onward",
   "extensions": {
     "colorMeta": {
@@ -180,15 +180,15 @@
       },
       "question": {
         "displayName": "Request",
-        "purpose": "DM Sans 400 opening composer and sent request; compact follow-ups have a smaller size."
+        "purpose": "DM Sans 400; --type-ask for the opening request and --type-question for sent questions and follow-ups."
       },
       "body": {
         "displayName": "Audience explanation",
-        "purpose": "DM Sans 400 with ss01/cv11, automatic optical sizing and the 16px/20px desktop body ramp."
+        "purpose": "DM Sans 400 with ss01/cv11, automatic optical sizing and the existing --type-body role."
       },
       "layer": {
         "displayName": "Semantic responsibility",
-        "purpose": "DM Sans 500 layer titles at 18px/23px."
+        "purpose": "DM Sans 500 plain-language step titles at --type-layer; technical names remain smaller subtitles."
       }
     },
     "shadows": [
@@ -208,11 +208,6 @@
         "name": "evidence-entry",
         "value": "340ms cubic-bezier(.16,1,.3,1)",
         "purpose": "Evidence opacity and 7px vertical reveal; disabled for reduced motion."
-      },
-      {
-        "name": "online-pulse",
-        "value": "2.4s ease-in-out infinite",
-        "purpose": "Connection status; disabled for reduced motion."
       }
     ],
     "breakpoints": [
@@ -249,7 +244,7 @@
       "refersTo": "button-send",
       "description": "Flat burgundy, icon-only primary request action.",
       "html": "<button class=\"ds-send\" aria-label=\"Send request\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"m22 2-7 20-4-9L2 9Z\"/><path d=\"M22 2 11 13\"/></svg></button>",
-      "css": ".ds-send{font-family:var(--font-body,\"DM Sans\",ui-sans-serif,system-ui,sans-serif);font-feature-settings:\"ss01\" on,\"cv11\" on;font-optical-sizing:auto;display:inline-flex;align-items:center;justify-content:center;width:52px;height:48px;padding:11px;border:1px solid var(--accent,#7a2e3a);border-radius:12px;background:var(--accent,#7a2e3a);color:var(--paper,#fffcf7);box-shadow:none;cursor:pointer}.ds-send svg{width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}.ds-send:hover{background:#642631;border-color:#642631}.ds-send:focus-visible{outline:2px solid var(--accent,#7a2e3a);outline-offset:4px}.ds-send:disabled{opacity:.42;cursor:not-allowed}@media(min-width:1800px){.ds-send{width:60px;height:56px}.ds-send svg{width:29px;height:29px}}"
+      "css": ".ds-send{font-family:var(--font-body,\"DM Sans\",ui-sans-serif,system-ui,sans-serif);font-feature-settings:\"ss01\" on,\"cv11\" on;font-optical-sizing:auto;display:inline-flex;align-items:center;justify-content:center;width:52px;height:48px;padding:11px;border:1px solid var(--accent,#7a2e3a);border-radius:12px;background:var(--accent,#7a2e3a);color:var(--paper,#fffcf7);box-shadow:none;cursor:pointer}.ds-send svg{width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}.ds-send:hover{background:#642631;border-color:#642631}.ds-send:focus-visible{outline:2px solid var(--accent,#7a2e3a);outline-offset:4px}.ds-send:disabled{opacity:.42;cursor:not-allowed}"
     },
     {
       "name": "Request field",
@@ -257,7 +252,7 @@
       "refersTo": "composer",
       "description": "Large DM Sans opening request with a bounded reading measure.",
       "html": "<div class=\"ds-composer\"><textarea class=\"ds-request\" aria-label=\"Your travel request\">Get me from Heathrow to my Lisbon meeting by 2pm tomorrow.</textarea></div>",
-      "css": ".ds-composer{background:var(--paper,#fffcf7);border:1px solid var(--line,#e4ddd3);border-radius:16px;padding:14px 16px 11px}.ds-composer:focus-within{border-color:#a8787e}.ds-request{font-family:var(--font-body,\"DM Sans\",ui-sans-serif,system-ui,sans-serif);font-feature-settings:\"ss01\" on,\"cv11\" on;font-optical-sizing:auto;font-weight:400;font-size:22px;line-height:1.5;color:var(--ink,#1c1917);width:100%;max-width:72ch;height:112px;resize:none;background:none;border:0;padding:0;caret-color:var(--accent,#7a2e3a)}.ds-request:focus{outline:0}@media(min-width:1500px){.ds-request{font-size:24px}}@media(min-width:1800px){.ds-composer{padding:22px 24px 18px}.ds-request{font-size:30px;height:142px}}"
+      "css": ".ds-composer{background:var(--paper,#fffcf7);border:1px solid var(--line,#e4ddd3);border-radius:16px;padding:15px 18px 12px}.ds-composer:focus-within{outline:2px solid var(--accent,#7a2e3a);outline-offset:2px}.ds-request{font-family:var(--font-body,\"DM Sans\",ui-sans-serif,system-ui,sans-serif);font-feature-settings:\"ss01\" on,\"cv11\" on;font-optical-sizing:auto;font-weight:400;font-size:var(--type-ask,18px);line-height:1.55;color:var(--ink,#1c1917);width:100%;max-width:72ch;min-height:64px;resize:none;background:none;border:0;padding:0;caret-color:var(--accent,#7a2e3a)}.ds-request:focus{outline:0}"
     },
     {
       "name": "Presentation mode",
@@ -265,7 +260,7 @@
       "refersTo": "mode-switch",
       "description": "The selected presentation mode reads as paper inset in stone.",
       "html": "<nav class=\"ds-mode\" aria-label=\"Presentation mode\"><button aria-pressed=\"true\">Presenter</button><button aria-pressed=\"false\">Auto reveal</button></nav>",
-      "css": ".ds-mode{display:inline-flex;gap:0;background:var(--chip,#efe8df);padding:3px;border-radius:9px}.ds-mode button{font-family:var(--font-body,\"DM Sans\",ui-sans-serif,system-ui,sans-serif);font-feature-settings:\"ss01\" on,\"cv11\" on;font-optical-sizing:auto;font-size:12px;font-weight:500;line-height:1.25;color:var(--ink,#1c1917);padding:7px 8px;background:none;border:0;border-radius:6px;cursor:pointer}.ds-mode button[aria-pressed=true]{background:var(--paper,#fffcf7);color:var(--accent,#7a2e3a)}.ds-mode button:hover{color:var(--accent,#7a2e3a)}.ds-mode button:focus-visible{outline:2px solid var(--accent,#7a2e3a);outline-offset:4px}@media(min-width:1800px){.ds-mode button{font-size:15px;padding:10px 13px}}"
+      "css": ".ds-mode{display:inline-flex;gap:0;background:var(--chip,#efe8df);padding:3px;border-radius:9px}.ds-mode button{font-family:var(--font-body,\"DM Sans\",ui-sans-serif,system-ui,sans-serif);font-feature-settings:\"ss01\" on,\"cv11\" on;font-optical-sizing:auto;font-size:var(--type-controls,12px);font-weight:500;line-height:1.25;color:var(--ink,#1c1917);padding:7px 8px;background:none;border:0;border-radius:6px;cursor:pointer}.ds-mode button[aria-pressed=true]{background:var(--paper,#fffcf7);color:var(--accent,#7a2e3a)}.ds-mode button:hover{color:var(--accent,#7a2e3a)}.ds-mode button:focus-visible{outline:2px solid var(--accent,#7a2e3a);outline-offset:4px}"
     },
     {
       "name": "Follow-up",
@@ -273,7 +268,7 @@
       "refersTo": "followup",
       "description": "A compact next-question action with the same focus treatment as the main controls.",
       "html": "<button class=\"ds-followup\">Can I arrive earlier?</button>",
-      "css": ".ds-followup{font-family:var(--font-body,\"DM Sans\",ui-sans-serif,system-ui,sans-serif);font-feature-settings:\"ss01\" on,\"cv11\" on;font-optical-sizing:auto;font-size:13px;font-weight:500;line-height:1.55;border:1px solid var(--line,#e4ddd3);padding:7px 10px;border-radius:7px;background:var(--paper,#fffcf7);color:var(--ink,#1c1917);cursor:pointer}.ds-followup:hover{color:var(--accent,#7a2e3a)}.ds-followup:focus-visible{outline:2px solid var(--accent,#7a2e3a);outline-offset:4px}@media(min-width:1800px){.ds-followup{font-size:16px}}"
+      "css": ".ds-followup{font-family:var(--font-body,\"DM Sans\",ui-sans-serif,system-ui,sans-serif);font-feature-settings:\"ss01\" on,\"cv11\" on;font-optical-sizing:auto;font-size:var(--type-controls,12px);font-weight:500;line-height:1.55;border:1px solid var(--line,#e4ddd3);padding:7px 10px;border-radius:7px;background:var(--paper,#fffcf7);color:var(--ink,#1c1917);cursor:pointer}.ds-followup:hover{color:var(--accent,#7a2e3a)}.ds-followup:focus-visible{outline:2px solid var(--accent,#7a2e3a);outline-offset:4px}"
     },
     {
       "name": "Hotel result body",
@@ -281,7 +276,15 @@
       "refersTo": "hotel-card",
       "description": "Portable text-body specimen; the application places its disclosed hotel illustration above this content.",
       "html": "<article class=\"ds-hotel\"><h3>Pátio House</h3><p>Hotel description returned by the current search.</p><div class=\"ds-hotel-facts\"><span>lexical <strong>—</strong></span><span>semantic <strong>—</strong></span></div><div class=\"ds-hotel-ranking\">Scores appear after a live search</div><small>Fictional hotel · AI-generated illustration</small></article>",
-      "css": ".ds-hotel{font-family:var(--font-body,\"DM Sans\",ui-sans-serif,system-ui,sans-serif);font-feature-settings:\"ss01\" on,\"cv11\" on;font-optical-sizing:auto;font-size:16px;line-height:1.6;color:var(--ink,#1c1917);background:var(--paper,#fffcf7);border:1px solid var(--line,#e4ddd3);border-radius:14px;padding:22px;max-width:440px}.ds-hotel h3{font-family:var(--font-display,\"Libre Caslon Text\",\"Palatino Linotype\",Palatino,serif);font-weight:400;font-size:25px;line-height:1.35;letter-spacing:-.025em;margin:0 0 13px}.ds-hotel p{font-size:16px;line-height:1.6;color:var(--muted,#6f675f);margin:0}.ds-hotel-facts{display:flex;flex-wrap:wrap;gap:6px 10px;border-top:1px solid var(--line,#e4ddd3);padding-top:14px;margin-top:16px;font-size:14px;line-height:1.5;font-variant-numeric:tabular-nums;color:var(--muted,#6f675f)}.ds-hotel strong{font-weight:500;color:var(--ink,#1c1917)}.ds-hotel-ranking{font-size:14px;line-height:1.5;margin-top:14px}.ds-hotel small{display:block;font-size:11px;color:var(--muted,#6f675f);margin-top:15px}@media(min-width:1800px){.ds-hotel{padding:24px}.ds-hotel h3{font-size:29px}.ds-hotel p{font-size:20px}.ds-hotel-facts,.ds-hotel-ranking{font-size:16px}.ds-hotel small{font-size:13px}}"
+      "css": ".ds-hotel{font-family:var(--font-body,\"DM Sans\",ui-sans-serif,system-ui,sans-serif);font-feature-settings:\"ss01\" on,\"cv11\" on;font-optical-sizing:auto;font-size:var(--type-body,16px);line-height:1.6;color:var(--ink,#1c1917);background:var(--paper,#fffcf7);border:1px solid var(--line,#e4ddd3);border-radius:14px;padding:22px;max-width:440px}.ds-hotel h3{font-family:var(--font-display,\"Libre Caslon Text\",\"Palatino Linotype\",Palatino,serif);font-weight:400;font-size:24px;line-height:1.35;letter-spacing:-.025em;margin:0 0 13px}.ds-hotel p{font-size:var(--type-body,16px);line-height:1.6;color:var(--muted,#6f675f);margin:0}.ds-hotel-facts{display:flex;flex-wrap:wrap;gap:6px 10px;border-top:1px solid var(--line,#e4ddd3);padding-top:14px;margin-top:16px;font-size:var(--type-data,14px);line-height:1.5;font-variant-numeric:tabular-nums;color:var(--muted,#6f675f)}.ds-hotel strong{font-weight:500;color:var(--ink,#1c1917)}.ds-hotel-ranking{font-size:var(--type-data,14px);line-height:1.5;margin-top:14px}.ds-hotel small{display:block;font-size:var(--type-controls,12px);color:var(--muted,#6f675f);margin-top:15px}"
+    },
+    {
+      "name": "Next layer",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The next presenter action is prominent while evidence is paused; availability follows the playback queue.",
+      "html": "<button class=\"ds-next-layer\">Next layer <span aria-hidden=\"true\">→</span></button>",
+      "css": ".ds-next-layer{font-family:var(--font-body,\"DM Sans\",ui-sans-serif,system-ui,sans-serif);font-feature-settings:\"ss01\" on,\"cv11\" on;font-optical-sizing:auto;display:inline-flex;align-items:center;gap:7px;font-size:var(--type-controls,12px);font-weight:500;min-height:38px;padding:7px 12px;border:0;border-radius:7px;background:var(--accent,#7a2e3a);color:var(--paper,#fffcf7);cursor:pointer}.ds-next-layer:hover{background:var(--action-hover,#642631)}.ds-next-layer:focus-visible{outline:2px solid var(--accent,#7a2e3a);outline-offset:3px}.ds-next-layer:disabled{opacity:.42;cursor:not-allowed}"
     }
   ],
   "narrative": {
@@ -301,13 +304,18 @@
       },
       {
         "name": "The Audience Role Rule",
-        "body": "Scale the question, evidence body, layer title and facts by their reading role. Extra display width must improve legibility rather than stretch prose indefinitely.",
+        "body": "Use the documented type roles and bounded reading measures. Wider displays change layout; browser zoom scales the composition for the room.",
         "section": "typography"
       },
       {
         "name": "The Photographic Depth Rule",
         "body": "Use gradients to protect text over photography; keep ordinary paper cards flat and reserve ambient shadows for overlays.",
         "section": "elevation"
+      },
+      {
+        "name": "The Revealed Progress Rule",
+        "section": "components",
+        "body": "The six-part progress strip counts steps already shown. Presenter mode can hold completed AWS results; say steps shown and make Next layer clear."
       }
     ],
     "dos": [

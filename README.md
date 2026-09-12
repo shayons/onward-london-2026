@@ -5,10 +5,11 @@ Onward demonstrates **Data for the Semantic Layer: Building search that understa
 **Open http://localhost:4318.** Counter remains independent at `../data-ai-day-london-cafe-2026`; its files and application data are untouched.
 
 - [PRODUCT.md](PRODUCT.md): the full product brief, scenario, data, behaviours, boundaries and success criteria.
-- [DEMO-SCRIPT.md](DEMO-SCRIPT.md): the 5–7 minute presenter guide.
+- [DEMO-SCRIPT.md](DEMO-SCRIPT.md): the ten-minute presenter guide, including preparation and architecture choices.
 - [ARCHITECTURE.md](ARCHITECTURE.md): the execution path and database decision framework.
 - [data/README.md](data/README.md): dataset provenance, preparation and expected decisions.
 - [infra/README.md](infra/README.md): deployed resources, rebuilding and retirement guidance.
+- [CODE-REVIEW.md](CODE-REVIEW.md): prioritised fixes, verification evidence and remaining limits.
 
 ## Run the connected demo
 
@@ -27,20 +28,20 @@ The **Online** button opens actual service readiness checks. If credentials expi
 
 ## Play the story
 
-1. **Presenter** is selected by default: each request begins with its display paused.
+1. **Auto reveal** is selected by default. Choose **Presenter** for the guided demo so each request begins with its display paused.
 2. Select **Reveal cancellation**, then **Find another way**. Or type a question in the composer.
-3. Advance **Next layer** through Business context, Ontology, Disambiguation, Metrics, Relationships and Verified examples. **Next event** reveals one smaller event; **Resume** reveals the queue at the selected pace.
-4. Inspect an event's SQL, graph query, returned evidence or service request IDs. The sixth layer unlocks the itinerary and streamed response.
-5. Try **Arrive earlier**, **Lowest complete price**, a **£450 budget**, or the **Flight availability** control in the footer.
+3. Advance **Next layer** through Set the goal, Connect names and places, Understand the words, Count every cost, Check the whole journey and Check the answer. Their technical component names remain visible underneath. **Next event** reveals one smaller event; **Resume** reveals the queue at the selected pace.
+4. Inspect an event's SQL, graph query, returned evidence or service request IDs. The sixth layer unlocks the itinerary and checked response. Received answers appear steadily in complete words; Pause and Stop also control this text reveal. Reduced motion shows received text immediately. “1 of 6 steps shown” measures revealed search evidence; it does not measure AWS service readiness. An optional booking has its own status and a link back to the six trip checks.
+5. Try **Arrive earlier**, **Somewhere livelier**, a **£450 budget**, or the **Flight availability** control in the footer.
 
 **Pause holds the display, while AWS execution continues. Replay uses the recorded run without new AWS calls. Stop ends the live request/runtime session.** The stream contains application tool events, not private model reasoning. The 24 semantic events are separate from answer-token and lifecycle events.
 
-A new conversation resets the visible story and runtime session. It preserves Alex's cross-session memory and does not reset Aurora inventory. After a stock experiment, choose **Flight availability** to restore its seats before another rehearsal. The cancellation timer is explicitly started and can be cancelled; hiding the tab cancels that timer and pauses display playback.
+A new conversation resets the visible story and runtime session. It preserves Alex's cross-session memory and does not reset Aurora inventory. The **Flight availability** switch changes only AX218. To restore all fictional seats and rooms after booking, open **Online → Restore demo stock** before another rehearsal. The cancellation timer is explicitly started and can be cancelled; hiding the tab cancels that timer and pauses display playback.
 
 ## What is connected
 
 - **Aurora PostgreSQL:** isolated `onward` database in the existing `meridian-demo` cluster; current fictional prices/availability, definitions, entities and pgvector/full-text retrieval.
-- **Amazon Bedrock (via Strands Agents):** the selected model interprets typed requests and streams grounded prose; Titan Text Embeddings V2 produces 256-dimensional embeddings.
+- **Amazon Bedrock (via Strands Agents):** the selected model interprets typed requests and explains checked trip results; Titan Text Embeddings V2 produces 256-dimensional embeddings. Proposal text is held until complete. Reservation and connection explanations use checked facts; no-match and booking outcomes are also explained directly from their returned data.
 - **AgentCore Runtime, Gateway, Policy and Memory:** the deployed Strands agent discovers and calls six MCP tools through AgentCore Gateway with IAM-signed requests; a Cedar policy engine permits or forbids each call before the tools Lambda runs; real conversations and extracted preferences support follow-ups and hotel ranking.
 - **AWS Lambda:** one function implements the six tools over Aurora, Neptune, S3, Titan and Memory; another proxies the published API.
 - **Neptune Analytics:** actual journey and walking relationships; bounded Python rules validate continuity, elapsed connection time and venue arrival.
@@ -64,13 +65,13 @@ npm test
 .venv/bin/python scripts/smoke.py
 ```
 
-`npm test` runs the JavaScript engine tests and the Python planner tests that the tools Lambda depends on. The smoke command makes a real deployed AgentCore request and saves its evidence under `.local/verification/`. Browser verification and captures are in `.impeccable/review/grok/`.
+`npm test` covers the planner, real PostgreSQL reservation concurrency, tool argument enforcement, conversation persistence, SSE decoding and playback cancellation. The reservation checks start a disposable local PostgreSQL instance when server binaries are installed; otherwise those checks report a skip. Install Python dependencies first with `uv pip install --python .venv/bin/python -r backend/requirements.lock`. The smoke command makes a real deployed AgentCore request and saves its evidence under `.local/verification/`. Browser verification and captures are in `.impeccable/review/grok/`.
 
-The shipped frontend is `index.html`, `app.js`, `presentation.js`, `style.css`; the proxy is `server.mjs`; the agent, its gateway client and the six-tool Lambda are in `backend/`. `scripts/` provisions, seeds, packages and verifies the AWS deployment. The earlier `engine.js`, `pipeline.js` and `resolution.css` remain prototype reference files; the live UI does not execute their authored pipeline. `engine.js` retains independent fixture checks.
+The shipped frontend is `index.html`, `app.js`, `presentation.js`, `style.css`; the proxy is `server.mjs`; the agent, conversation state, gateway client and six-tool Lambda are in `backend/`. `api-shared.mjs` keeps local and published request validation consistent; `stream.js` decodes the browser event stream and `answer-reveal.js` smooths its text for display. `scripts/` provisions, seeds, packages and verifies the AWS deployment. `engine.js` is not shipped to the browser; it re-derives the trip arithmetic independently so `tests/engine.test.mjs` can pin the numbers the talk quotes.
 
 The supplied `grok/` export is preserved as a reference. Its visual design and images are incorporated into the live app; its simulated engine and alternate dataset are not loaded. Open **http://localhost:4318/prepare** for the data-preparation view. Hotel comparison tiles show actual retrieval scores after the Disambiguation component has been revealed.
 
-Open **http://localhost:4318/briefing**, or choose **Solution briefing** in the top bar, for the solution briefing. The top bar also links Concierge, Data preparation and Architecture, and stays visible on every page. Its “What the model does, and what the code does” section states the model’s three decisions, lists the six MCP tools it calls through AgentCore Gateway, shows the three Cedar policies verbatim, and names the behaviours the deterministic rules produce; no framework skill is involved. The Memory showcase quotes Semantic facts, User Preference records, a Session Summary and the Episodic record that the deployed strategies extracted from a dedicated Alex conversation, labelled as recorded on 9 September 2026 rather than fetched live.
+Open **http://localhost:4318/briefing**, or choose **Solution briefing** in the top bar, for the solution briefing. The top bar also links Concierge, Data preparation and Architecture, and stays visible on every page. Its “What the model does, and what the code does” section explains the model’s three decisions, lists the six MCP tools it calls through AgentCore Gateway, shows the three Cedar policies verbatim, and names the behaviours the deterministic rules produce; no framework skill is involved. The Memory showcase quotes Semantic facts, User Preference records, a Session Summary and the Episodic record that the deployed strategies extracted from a dedicated Alex conversation, labelled as recorded on 9 September 2026 rather than fetched live.
 
 Aurora is not used as AgentCore Memory's backing store. The search_hotels tool, behind AgentCore Gateway, retrieves Memory preferences, applies current-request precedence, uses Bedrock to embed the resulting hotel intent, and sends the vector and lexical query to Aurora; the runtime’s Strands session manager persists the conversation. Aurora holds the traveller entity and explicit declarations, hotel text/embeddings, prices and stock; AgentCore Memory holds the conversational records.
 

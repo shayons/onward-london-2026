@@ -8,7 +8,7 @@
 - 3 airports with IANA time-zone identifiers: London Heathrow (LHR), Lisbon (LIS), Madrid (MAD).
 - 5 replacement flight offers, comprising 6 flight legs.
 - 3 hotels, 1 airport-to-venue transfer, an earlier conversation, and 4 policy/example source excerpts.
-- 4 raw-source examples showing preparation into shared semantics.
+- 6 raw-source examples showing preparation into shared semantics.
 
 The snapshot is `2026-09-14T17:00:00Z`, 18:00 in London. Travel is on 15 September; the one hotel night is 15–16 September. This fixed clock keeps the narrative repeatable.
 
@@ -43,7 +43,7 @@ Bedrock Titan Text Embeddings V2 creates 256-dimensional hotel/document vectors.
 
 Neptune holds curated offers, flight legs, airports, transfers and hotel-to-venue edges. Python validates continuity and timing over these returned paths. S3 holds versioned source excerpts and the raw fixture. Aurora records each document's URI/version ID; the runtime reads that exact S3 version. Document embeddings are prepared, but policy selection currently follows known IDs rather than vector search.
 
-AgentCore Memory holds the earlier onboarding conversation and real demo conversations for actor `alex-onward`. Its built-in Semantic, User Preference, Session Summary and Episodic strategies extract long-term records asynchronously. The runtime's ranking path retrieves User Preference records and distinguishes them from an onboarding-conversation fallback. The solution briefing also shows the dedicated showcase session's facts and summary; Episodic stays visibly empty until AgentCore detects a completed episode. New conversations preserve this actor's preferences; turning Memory off removes their ranking influence without deleting them.
+AgentCore Memory holds the earlier onboarding conversation and real demo conversations for actor `alex-onward`. Its built-in Semantic, User Preference, Session Summary and Episodic strategies extract long-term records asynchronously when extraction is enabled. Ordinary trip turns and saved trip state skip extraction, so a one-trip change does not become a lasting preference. An explicit “remember” request enables extraction for that preference. The runtime's ranking path retrieves User Preference records and distinguishes them from an onboarding-conversation fallback. The solution briefing shows recorded facts and a summary from a dedicated showcase session; Episodic stays visibly empty until AgentCore detects a completed episode. New conversations preserve this actor's preferences; turning Memory off removes their ranking influence without deleting them.
 
 Aurora does not store or mirror those Memory records. It stores the stable traveller entity, explicit declarations, hotel descriptions and embeddings, prices and current stock. The runtime uses retrieved preference language to select source-backed search vocabulary, asks Bedrock for the query embedding, and executes the combined lexical/vector retrieval in Aurora.
 
@@ -51,6 +51,6 @@ The “verified examples” component reads a stored, authored complete-trip pat
 
 ## Rehearsal changes
 
-The stock control writes AX218 seats to zero or four in Onward's Aurora table, then submits a new request using the current conversation constraints. Restore the seats after rehearsal. This does not change the local fixture file. Re-running `scripts/seed.py` restores fixture inventory and refreshes source versions/embeddings; it is not necessary between ordinary runs.
+The flight availability control writes AX218 seats to zero or four in Onward's Aurora table, then submits a new request using the current conversation constraints. It leaves all hotel rooms and other flights unchanged. The separate **Restore demo stock** button in the connection panel resets all fictional seats and rooms to their starting counts, while keeping booking records. Use that explicit reset before a rehearsal that needs fresh stock. Neither control changes the local fixture file. Re-running `scripts/seed.py` also refreshes source versions and embeddings; it is not necessary between ordinary runs.
 
 Hotel ranking can vary with the current explicit query, retrieved preferences and model interpretation. The expected outcomes above describe the tested default conditions; hard budget, deadline, walking and availability rules remain deterministic.

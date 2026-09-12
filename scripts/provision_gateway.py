@@ -10,7 +10,6 @@ import string
 import subprocess
 import time
 import zipfile
-from pathlib import Path
 
 from provision import ACCOUNT, CONFIG, REGION, ROOT, SESSION, STATE, TAGS, save, sql
 
@@ -44,6 +43,7 @@ def writer_credentials(cfg):
     sql('CREATE TABLE IF NOT EXISTS bookings (id text PRIMARY KEY, session_id text NOT NULL, traveller_id text NOT NULL, '
         'offer_id text NOT NULL REFERENCES offers(id), hotel_id text NOT NULL REFERENCES hotels(id), total_pence integer NOT NULL, '
         'policy_decision text NOT NULL, created_at timestamptz NOT NULL DEFAULT now())', 'onward')
+    sql('CREATE UNIQUE INDEX IF NOT EXISTS bookings_one_per_session ON bookings(session_id)', 'onward')
     if 'writerSecretArn' not in cfg:
         try:
             cfg['writerSecretArn'] = sm.describe_secret(SecretId=name)['ARN']
@@ -107,7 +107,7 @@ def tools_function(cfg):
     shutil.rmtree(package, ignore_errors=True)
     package.mkdir(parents=True)
     subprocess.run(['uv', 'pip', 'install', '--quiet', '--target', str(package), *PLATFORM,
-                    '-r', str(ROOT / 'backend/tools-requirements.txt')], check=True)
+                    '-r', str(ROOT / 'backend/tools-requirements.lock')], check=True)
     for filename in ('tools.py', 'services.py', 'planner.py'):
         shutil.copy2(ROOT / 'backend' / filename, package / filename)
     shutil.copy2(STATE, package / 'deployed.json')
@@ -228,7 +228,9 @@ def policy_engine(cfg, gateway_details):
             print('Waiting for IAM propagation on the gateway role…', flush=True)
             time.sleep(15)
 
-    associate('LOG_ONLY')
+    # Keep enforcement on during updates. Existing policies continue to protect bookings;
+    # a new engine denies by default until its policies are installed.
+    associate('ENFORCE')
     listed = control.list_policy_summaries(policyEngineId=engine_id)
     existing = {p['name']: p for p in listed.get('policies', listed.get('policySummaries', []))}
     policy_ids = {}

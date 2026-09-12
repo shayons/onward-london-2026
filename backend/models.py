@@ -12,7 +12,7 @@ SELECTABLE_MODELS = SETTINGS.get('selectableModels') or {SETTINGS['modelId']: SE
 
 def resolve_model_id(requested):
     """Return an allowlisted model id, falling back to the deployed default."""
-    return requested if requested in SELECTABLE_MODELS else SETTINGS['modelId']
+    return requested if isinstance(requested, str) and requested in SELECTABLE_MODELS else SETTINGS['modelId']
 
 
 def language_model(model_id, max_tokens):

@@ -12,8 +12,8 @@ import secrets
 import string
 from datetime import datetime, timezone
 
-from planner import TripRequest, compute, traveller_context
-from services import (BOOKING_QUERY, HOTEL_SEARCH, LEG_QUERY, MEMORY, OFFER_QUERY, PRICE_QUERY, S3, SETTINGS,
+from planner import BookingRequest, TripRequest, compute, traveller_context
+from services import (BOOKING_LOOKUP, BOOKING_QUERY, HOTEL_SEARCH, LEG_QUERY, MEMORY, OFFER_QUERY, PRICE_QUERY, S3, SETTINGS,
     TRANSFER_QUERY, WALK_QUERY, db, db_write, embed, graph)
 
 ACTOR = 'alex-onward'
@@ -47,7 +47,7 @@ def entities():
 def airport(rows, value):
     for entity in rows:
         names = [str(name).casefold() for name in [entity['id'], entity['name'], *entity['aliases']]]
-        if entity['kind'] == 'airport' and str(value).casefold() in names:
+        if entity['kind'] == 'airport' and str(value).strip().casefold() in names:
             return entity['id']
     return None
 
@@ -70,8 +70,12 @@ def remembered_preferences(memory_enabled):
         source, request_id = 'short-term onboarding; extraction not available yet', rid(result)
     for record in memories:
         if record['text'].startswith('{'):
-            structured = json.loads(record['text'])
-            record['text'] = structured.get('preference', record['text'])
+            try:
+                structured = json.loads(record['text'])
+            except ValueError:
+                continue
+            if isinstance(structured, dict) and isinstance(structured.get('preference'), str):
+                record['text'] = structured['preference']
     return memories, source, request_id
 
 
@@ -101,11 +105,18 @@ def hotel_search(args):
                            'embedding': embed_id, 'hotels': hotel_id}}
 
 
-def journey(request, venue_id):
+def journey(request, venue_id, transfer_definition):
     legs, leg_id = graph(LEG_QUERY)
     transfers, transfer_id = graph(TRANSFER_QUERY, {'airport': request.destination, 'venue': venue_id})
     walks, walk_id = graph(WALK_QUERY, {'venue': venue_id})
-    return legs, transfers[0] if transfers else None, walks, [leg_id, transfer_id, walk_id]
+    if len(transfers) > 1:
+        raise ValueError('More than one airport transfer was returned. Review the source data.')
+    transfer = transfers[0] if transfers else None
+    if transfer:
+        transfer = {**transfer, 'available': transfer_definition.get('available') is True}
+        if transfer['price_pence'] != transfer_definition['pricePence']:
+            raise ValueError('The transfer price differs between the graph and the price definition.')
+    return legs, transfer, walks, [leg_id, transfer_id, walk_id]
 
 
 def policy_documents():
@@ -149,6 +160,7 @@ def resolve_entities(args):
             'origin': origin, 'destination': destination, 'travellerId': traveller['id'], 'tripId': trip['id'],
             'venueId': venue['id'], 'venueName': venue['name'], 'supported': supported,
             'evidence': {'sql': 'SELECT id,kind,name,aliases,payload FROM entities ORDER BY kind,id',
+                         'supported': supported, 'resolvedOrigin': origin, 'resolvedDestination': destination,
                          'entities': [{k: e[k] for k in ('id', 'kind', 'name', 'aliases')} for e in rows], 'requestId': request_id}}
 
 
@@ -156,11 +168,13 @@ def search_hotels(args):
     search = hotel_search(args)
     request = search['request']
     return {'layer': 2, 'title': 'Context makes the search specific', 'service': 'Aurora hybrid retrieval',
-            'summary': f'{request.travelDate} · ≤{request.maxWalkMinutes} min walk · '
-                       f'{"personalised hotel ranking" if search["preferHotel"] else "no remembered hotel ranking"}',
+            'summary': f'{request.travelDate} · up to {request.maxWalkMinutes} min walk · '
+                       f'{"hotel preferences applied" if search["preferHotel"] else "no hotel preference applied"}',
             'hotels': [{k: h[k] for k in ('id', 'name', 'quiet', 'walk_minutes', 'night_pence', 'rooms', 'rrf_score')} for h in search['hotels']],
             'travellerContext': search['personal'], 'memorySource': search['memorySource'], 'preferenceApplied': search['preferHotel'],
-            'evidence': {'travellerContext': search['personal'], 'memorySource': search['memorySource'], 'memoryRecords': search['memories'],
+            'evidence': {'date': request.travelDate, 'maxWalkMinutes': request.maxWalkMinutes,
+                         'preferenceApplied': search['preferHotel'], 'travellerContext': search['personal'],
+                         'memorySource': search['memorySource'], 'memoryRecords': search['memories'],
                          'memoryRequestId': search['requestIds']['memory'], 'travellerProfileRequestId': search['requestIds']['entities'],
                          'namespace': PREFERENCE_NAMESPACE, 'embeddingDimensions': 256, 'sql': HOTEL_SEARCH,
                          'searchText': search['intent'], 'lexicalQuery': search['lexical'],
@@ -170,12 +184,13 @@ def search_hotels(args):
 
 
 def price_bundles(args):
+    request = request_from(args)
     defs, definition_id = definitions()
-    price_args = {'bags': int(args['bags']), 'nights': int(args['nights']), 'transfer': defs['transfer']['pricePence']}
+    price_args = {'bags': request.bags, 'nights': request.nights, 'transfer': defs['transfer']['pricePence']}
     prices, price_id = db(PRICE_QUERY, price_args)
     offers, offer_id = db(OFFER_QUERY)
     return {'layer': 3, 'title': 'Every cost is included', 'service': 'Aurora PostgreSQL',
-            'summary': f'{len(prices)} complete bundles priced by Aurora SQL.',
+            'summary': f'{len(prices)} flight and hotel combinations priced, including bags and the transfer.',
             'bundles': [{k: p[k] for k in ('offer_id', 'hotel_id', 'total_pence')} for p in prices],
             'definition': defs['complete-price'], 'excludes': 'Return flight and travel to Heathrow',
             'evidence': {'definition': defs['complete-price'], 'sql': PRICE_QUERY, 'parameters': price_args, 'bundles': prices,
@@ -189,7 +204,7 @@ def validate_journeys(args):
     rows, _ = entities()
     venue = next(e for e in rows if e['kind'] == 'venue')
     offers, offer_id = db(OFFER_QUERY)
-    legs, transfer, walks, graph_ids = journey(request, venue['id'])
+    legs, transfer, walks, graph_ids = journey(request, venue['id'], defs['transfer'])
     sources, document_id = policy_documents()
     plan = compute(request, offers, [], [], legs, transfer, walks, defs['trip-rules'])
     routes = [{'offer': r['offer']['id'], 'carrier': r['offer']['carrier'], 'landing': r['landing'], 'venueArrival': r['venueArrival'],
@@ -211,14 +226,14 @@ def select_itinerary(args):
     request, defs = search['request'], search['definitions']
     venue = next(e for e in search['entities'] if e['kind'] == 'venue')
     price_args = {'bags': request.bags, 'nights': request.nights, 'transfer': defs['transfer']['pricePence']}
-    prices, check_id = db(PRICE_QUERY, price_args)
     offers, offer_id = db(OFFER_QUERY)
+    legs, transfer, walks, graph_ids = journey(request, venue['id'], defs['transfer'])
+    prices, check_id = db(PRICE_QUERY, price_args)
     for offer in offers:
-        checked = next(p for p in prices if p['offer_id'] == offer['id'])
+        checked = next((p for p in prices if p['offer_id'] == offer['id']), None)
+        if checked is None:
+            raise ValueError(f'No current price record for {offer["id"]}. Refresh the source data.')
         offer.update({key: checked[key] for key in ('seats', 'aisle_seats', 'window_seats', 'seat_selection_included', 'seat_source_id')})
-    legs, transfer, walks, graph_ids = journey(request, venue['id'])
-    if transfer and transfer['price_pence'] != price_args['transfer']:
-        raise ValueError('The transfer cost differs between the graph and the price contract; refresh the source data.')
     plan = compute(request, offers, search['hotels'], prices, legs, transfer, walks, defs['trip-rules'],
                    search['preferHotel'], search['personal']['seatPreference']['value'])
     plan['travellerContext'] = search['personal']
@@ -228,17 +243,30 @@ def select_itinerary(args):
     selected = plan['selected']
     summary = (f'{selected["route"]["offer"]["id"]} + {selected["hotel"]["name"]}: £{selected["totalPence"] / 100:g} complete.'
                if selected else 'No complete bundle satisfies the current constraints. Nothing was relaxed.')
-    return {'layer': 5, 'title': 'The answer is grounded', 'service': 'Aurora + deterministic constraint checks',
+    return {'layer': 5, 'title': 'The trip is checked against the data', 'service': 'Aurora + deterministic constraint checks',
             'summary': summary, 'selected': compact['selected'], 'rejections': compact['rejections'],
             'minimumFeasiblePence': plan['minimumFeasiblePence'], 'eligibleCount': plan['eligibleCount'],
             'travellerContext': search['personal'], 'plan': plan,
-            'evidence': {**compact, 'sql': PRICE_QUERY, 'parameters': price_args, 'queryRequestId': check_id,
+            'evidence': {**compact, 'example': defs['verified-example'],
+                         'definitionRequestId': search['requestIds']['definitions'],
+                         'sql': PRICE_QUERY, 'parameters': price_args, 'queryRequestId': check_id,
                          'offerRequestId': offer_id, 'graphRequestIds': graph_ids, 'checkedAt': plan['checkedAt']}}
 
 
 def book_trip(args):
     """Reserve one seat and one room atomically. The gateway policy has already permitted the call."""
+    booking_request = BookingRequest(**args)
+    if (not booking_request.travellerConfirmed or not booking_request.arrivesBeforeDeadline
+            or booking_request.totalPence >= booking_request.budgetPence
+            or booking_request.carrier != 'Aster Air' or not booking_request.seatSelectionIncluded):
+        raise ValueError('The booking does not meet the confirmation, price, arrival or airline rules.')
+    # Return the original reservation after a retry, even when it took the last room.
+    existing, lookup_id = db_write(BOOKING_LOOKUP, {'session': args['sessionId']})
+    if existing:
+        return booking_result(existing[0], args, lookup_id, reused=True)
     defs, _ = definitions()
+    if defs['transfer'].get('available') is not True:
+        raise ValueError('The airport transfer is unavailable. Nothing was reserved; search again.')
     prices, price_id = db(PRICE_QUERY, {'bags': int(args['bags']), 'nights': int(args['nights']), 'transfer': defs['transfer']['pricePence']})
     bundle = next((p for p in prices if p['offer_id'] == args['offerId'] and p['hotel_id'] == args['hotelId']), None)
     if bundle is None:
@@ -247,17 +275,30 @@ def book_trip(args):
         raise ValueError(f'The complete price is now £{int(bundle["total_pence"]) / 100:g}; the itinerary must be re-selected before booking.')
     reference = 'ONW-' + ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(6))
     rows, request_id = db_write(BOOKING_QUERY, {'offer': args['offerId'], 'hotel': args['hotelId'], 'booking': reference,
-        'session': args['sessionId'], 'traveller': ACTOR, 'total': int(args['totalPence']), 'policy': 'permit'})
+        'session': args['sessionId'], 'traveller': ACTOR, 'total': args['totalPence'], 'policy': 'permit',
+        'bags': args['bags'], 'nights': args['nights'], 'transfer': defs['transfer']['pricePence'], 'budget': args['budgetPence']})
     if not rows:
-        raise ValueError('No seat or room is left in the current Aurora inventory; nothing was booked.')
-    booking = rows[0]
+        # A simultaneous request may have won the session's unique booking key.
+        existing, lookup_id = db_write(BOOKING_LOOKUP, {'session': args['sessionId']})
+        if existing:
+            return booking_result(existing[0], args, lookup_id, reused=True)
+        raise ValueError('The flight, room or price changed. Nothing was reserved; search again.')
+    return booking_result(rows[0], args, request_id, price_id=price_id)
+
+
+def booking_result(booking, args, request_id, price_id=None, reused=False):
+    if (booking['offer_id'], booking['hotel_id'], booking['total_pence']) != (
+            args['offerId'], args['hotelId'], args['totalPence']):
+        raise ValueError('This conversation already has a different booking. Start a new conversation for another trip.')
+    reference = booking['id']
     return {'layer': 6, 'title': 'Booked under policy', 'service': 'AgentCore Gateway policy · Aurora',
             'summary': f'{reference}: {args["offerId"]} + {args["hotelId"]}, £{int(args["totalPence"]) / 100:g}, policy permitted.',
             'booking': {'reference': reference, 'offerId': booking['offer_id'], 'hotelId': booking['hotel_id'],
                         'totalPence': booking['total_pence'], 'createdAt': booking['created_at'],
-                        'seatsLeft': booking['seats_left'], 'roomsLeft': booking['rooms_left']},
+                        'seatsLeft': booking['seats_left'], 'roomsLeft': booking['rooms_left'], 'reused': reused},
             'evidence': {'sql': BOOKING_QUERY, 'booking': booking, 'policyDecision': 'permit',
-                         'priceCheckRequestId': price_id, 'bookingRequestId': request_id, 'fictional': True}}
+                         'priceCheckRequestId': price_id, 'bookingRequestId': request_id,
+                         'reusedExistingBooking': reused, 'fictional': True}}
 
 
 TOOLS = {'resolve_entities': resolve_entities, 'search_hotels': search_hotels, 'price_bundles': price_bundles,

@@ -2,7 +2,6 @@
 import json
 import sys
 import uuid
-from pathlib import Path
 from datetime import datetime, timezone
 
 from provision import ROOT, SESSION, CONFIG
@@ -39,6 +38,33 @@ def invoke(message, session_id=None, **extra):
     return events, session_id, result['ResponseMetadata']['RequestId']
 
 
+def validate_events(events, require_booking=False, require_plan=False):
+    """Check the returned evidence, not just whether the transport reached a done event."""
+    errors = [e for e in events if e.get('type') == 'error']
+    assert not errors, 'The deployed request returned an error: ' + json.dumps(errors)
+    assert any(e.get('type') == 'done' for e in events), 'No completed run event'
+    assert any(e.get('type') == 'answer' and e.get('text', '').strip() for e in events), 'No answer was returned'
+    if require_plan:
+        assert any(e.get('type') == 'plan' and isinstance(e.get('plan'), dict) for e in events), 'No trip evaluation was returned'
+    for event in events:
+        if event.get('type') != 'plan':
+            continue
+        plan = event['plan']
+        resolved = {e['layer'] for e in events if e.get('type') == 'trace' and e.get('phase') == 'result' and not e.get('error')}
+        assert set(range(6)) <= resolved, 'The answer skipped a semantic component'
+        selected = plan.get('selected')
+        if selected:
+            assert selected['eligible'] and not selected['reasons'], 'An ineligible itinerary was selected'
+            assert selected['totalPence'] < plan['request']['budgetPence'], 'The strict budget was not met'
+            assert selected['totalPence'] == sum(selected['price'][key] for key in (
+                'fare_pence', 'bags_pence', 'hotel_pence', 'transfer_pence')), 'Cost lines do not add up'
+            assert datetime.fromisoformat(selected['route']['venueArrival']) <= datetime.fromisoformat(plan['deadline']), 'Venue arrival is late'
+            assert selected['hotel']['walk_minutes'] <= plan['request']['maxWalkMinutes'], 'Hotel exceeds walking limit'
+            assert selected['price']['seats'] > 0 and selected['price']['rooms'] > 0, 'Selected stock is unavailable'
+    if require_booking:
+        assert any(e.get('type') == 'booking' and e.get('booking') for e in events), 'No booking was confirmed'
+
+
 def main():
     book = '--book' in sys.argv
     model_only = '--model-only' in sys.argv
@@ -55,10 +81,7 @@ def main():
     output = {'at': datetime.now(timezone.utc).isoformat(), 'sessionId': session, 'runtimeRequestId': request, 'events': events}
     path = folder / (session + '.json')
     path.write_text(json.dumps(output, ensure_ascii=False, indent=2) + '\n')
-    errors = [e for e in events if e.get('type') == 'error' or 'error' in e]
-    if errors:
-        raise RuntimeError('The deployed run failed; inspect ' + str(path))
-    assert any(e.get('type') == 'done' for e in events), 'No completed run event'
+    validate_events(events, require_booking=book, require_plan=not model_only and not words)
     plan = next((e['plan'] for e in events if e.get('type') == 'plan'), None)
     print(json.dumps({'evidence': str(path), 'events': len(events), 'runtimeRequestId': request,
         'selected': plan['selected']['id'] if plan and plan['selected'] else None,

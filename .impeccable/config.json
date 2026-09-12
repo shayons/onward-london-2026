@@ -1,0 +1,26 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "clipped-overflow-container",
+        "value": "*",
+        "files": [
+          "/Users/shayons/Desktop/Workshops/data-ai-day-london-travel-2026/index.html"
+        ],
+        "createdAt": "2026-09-10T20:37:11.116Z",
+        "reason": "Agent review: body intentionally fixes the workspace to 100dvh while transcript, trace and preparation regions scroll independently. Evidence uses a body-level native dialog opened with showModal, which enters the top layer; no absolutely positioned child menu is trapped in the body scroll container. Mobile rendering still needs visual confirmation."
+      },
+      {
+        "rule": "cream-palette",
+        "value": "*",
+        "files": [
+          "/Users/shayons/Desktop/Workshops/data-ai-day-london-travel-2026/index.html"
+        ],
+        "createdAt": "2026-09-10T20:54:41.948Z",
+        "reason": "Agent: DESIGN.md explicitly defines the existing warm paper canvas (#f7f4ef), burgundy actions and Lisbon imagery as Onward’s established identity. Preserve that deliberate palette; this exception applies only to the cream-palette finding in index.html."
+      }
+    ]
+  }
+}

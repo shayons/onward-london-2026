@@ -9,6 +9,7 @@ import {NeptuneGraphClient, GetGraphCommand} from '@aws-sdk/client-neptune-graph
 import {S3Client, HeadObjectCommand} from '@aws-sdk/client-s3';
 import {randomUUID} from 'node:crypto';
 import {readFile} from 'node:fs/promises';
+import {RequestError, assertOnwardConfig, parseJson, scenarioStatement, sessionValid, validateChat} from './api-shared.mjs';
 
 const region='us-east-1', account='619763002613';
 const runtime=new BedrockAgentCoreClient({region,maxAttempts:2});
@@ -16,11 +17,9 @@ const control=new BedrockAgentCoreControlClient({region,maxAttempts:2});
 const sts=new STSClient({region,maxAttempts:2}), rds=new RDSDataClient({region,maxAttempts:2});
 const neptune=new NeptuneGraphClient({region,maxAttempts:2}), s3=new S3Client({region,maxAttempts:2});
 const EDGE_SECRET=process.env.ONWARD_EDGE_SECRET||'';
-const READER_SECRET=process.env.ONWARD_SCENARIO_SECRET||'';
 let cachedConfig=null, cachedHealth=null;
 
-const config=async()=>cachedConfig??=JSON.parse(await readFile(new URL('./deployed.json',import.meta.url),'utf8'));
-const sessionValid=s=>typeof s==='string'&&/^onward-[a-zA-Z0-9-]{32,80}$/.test(s);
+const config=async()=>cachedConfig??=assertOnwardConfig(JSON.parse(await readFile(new URL('./deployed.json',import.meta.url),'utf8')));
 const HEADERS={'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'};
 
 async function checkAccount(){
@@ -45,6 +44,7 @@ async function health(){
     status:check.status==='fulfilled'?(check.value.status||check.value.memory?.status||'CONNECTED'):(check.reason.name||'Unavailable'),
     requestId:check.status==='fulfilled'?check.value.$metadata?.requestId:null,
     ...(i===0&&check.status==='fulfilled'?{details:JSON.parse(check.value.formattedRecords)[0]}:{})}));
+  for(const service of services){if(['AgentCore Runtime','AgentCore Memory','AgentCore Gateway','Neptune Analytics'].includes(service.name))service.ok=service.ok&&['READY','ACTIVE','AVAILABLE'].includes(service.status);}
   const value={ok:services.every(s=>s.ok&&(!['AgentCore Runtime','AgentCore Memory','AgentCore Gateway','Neptune Analytics'].includes(s.name)||['READY','ACTIVE','AVAILABLE'].includes(s.status))),
     accountId:identity.Account,region,services,cluster:cfg.clusterId,database:cfg.database,model:cfg.modelId,
     runtimeId:cfg.runtimeId,memoryId:cfg.memoryId,gatewayId:cfg.gatewayId,policyEngineId:cfg.policyEngineId,graphId:cfg.graphId,bucket:cfg.bucket,models:cfg.selectableModels||{},checkedAt:new Date().toISOString(),
@@ -55,8 +55,7 @@ async function health(){
 const parseBody=event=>{
   const raw=event.isBase64Encoded?Buffer.from(event.body||'',
     'base64').toString('utf8'):(event.body||'');
-  if(raw.length>16000)throw new Error('Request is too large.');
-  return JSON.parse(raw||'{}');
+  return parseJson(raw);
 };
 
 function send(stream,status,value){
@@ -77,14 +76,13 @@ export const handler=awslambda.streamifyResponse(async(event,responseStream)=>{
     if(!(headers['content-type']||'').startsWith('application/json'))return send(responseStream,415,{error:'JSON requests are required.'});
 
     if(path==='/api/chat'){
-      const input=parseBody(event);
-      if(!sessionValid(input.sessionId)||typeof input.message!=='string'||!input.message.trim()||input.message.length>4000)
-        return send(responseStream,400,{error:'Enter a message of 1–4,000 characters in a valid session.'});
+      const input=validateChat(parseBody(event));
       const cfg=await config();await checkAccount();
       const runId=randomUUID();
       const stream=awslambda.HttpResponseStream.from(responseStream,{statusCode:200,
         headers:{'Content-Type':'text/event-stream','Cache-Control':'no-cache, no-transform','X-Accel-Buffering':'no'}});
       stream.write('data: '+JSON.stringify({type:'connection',runId,message:'Connecting to AgentCore Runtime…'})+'\n\n');
+      const heartbeat=setInterval(()=>stream.write(': keepalive\n\n'),15000);
       try{
         const result=await runtime.send(new InvokeAgentRuntimeCommand({agentRuntimeArn:cfg.runtimeArn,
           runtimeSessionId:input.sessionId,qualifier:'DEFAULT',contentType:'application/json',accept:'text/event-stream',
@@ -98,6 +96,8 @@ export const handler=awslambda.streamifyResponse(async(event,responseStream)=>{
         stream.write('data: '+JSON.stringify({type:'error',runId,
           message:`${error.name||'Connection error'}: the live agent could not complete this request. Retry or check AWS connection details.`,
           requestId:error.$metadata?.requestId})+'\n\n');
+      }finally{
+        clearInterval(heartbeat);
       }
       return stream.end();
     }
@@ -112,27 +112,18 @@ export const handler=awslambda.streamifyResponse(async(event,responseStream)=>{
 
     if(path==='/api/scenario'){
       const input=parseBody(event);
-      if(typeof input.soldOut!=='boolean')return send(responseStream,400,{error:'soldOut must be a boolean.'});
       const cfg=await config();await checkAccount();
-      // Changes exactly one fictional offer in Onward, never Meridian data.
-      const secretArn=READER_SECRET||cfg.secretArn;
+      const statement=scenarioStatement(input,JSON.parse(await readFile(new URL('./travel.json',import.meta.url),'utf8')));
+      const secretArn=cfg.writerSecretArn;
+      if(!secretArn)throw new Error('The Onward inventory writer is not configured.');
       const result=await rds.send(new ExecuteStatementCommand({resourceArn:cfg.clusterArn,secretArn,
-        database:'onward',sql:"UPDATE offers SET seats=:seats,updated_at=now() WHERE id='AX218' RETURNING id,seats,updated_at::text",
-        parameters:[{name:'seats',value:{longValue:input.soldOut?0:4}}],formatRecordsAs:'JSON'}));
-      let hotels=null;
-      if(!input.soldOut){
-        // Restoring availability also returns rehearsal bookings' rooms to the seeded counts.
-        const seeded=JSON.parse(await readFile(new URL('./travel.json',import.meta.url),'utf8')).hotels.map(h=>({id:h.id,rooms:h.rooms}));
-        const rooms=await rds.send(new ExecuteStatementCommand({resourceArn:cfg.clusterArn,secretArn,database:'onward',
-          sql:"UPDATE hotels h SET rooms=v.rooms FROM json_to_recordset(CAST(:rooms AS json)) AS v(id text,rooms integer) WHERE h.id=v.id RETURNING h.id,h.rooms",parameters:[{name:'rooms',value:{stringValue:JSON.stringify(seeded)}}],formatRecordsAs:'JSON'}));
-        hotels=JSON.parse(rooms.formattedRecords);
-      }
+        database:'onward',...statement,formatRecordsAs:'JSON'}));
       cachedHealth=null;
-      return send(responseStream,200,{offer:JSON.parse(result.formattedRecords)[0],hotels,requestId:result.$metadata.requestId});
+      return send(responseStream,200,{offer:JSON.parse(result.formattedRecords)[0],reset:input.reset===true,requestId:result.$metadata.requestId});
     }
     return send(responseStream,404,{error:'Not found.'});
   }catch(error){
-    try{send(responseStream,500,{error:error.message?.includes('different account')?error.message:`${error.name||'Error'}: unable to complete the AWS request.`});}
+    try{send(responseStream,error.status||500,{error:error instanceof RequestError||error.message?.includes('different account')?error.message:`${error.name||'Error'}: unable to complete the AWS request.`});}
     catch{responseStream.end();}
   }
 });

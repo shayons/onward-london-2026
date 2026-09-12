@@ -3,9 +3,8 @@ import json
 import shutil
 import subprocess
 import zipfile
-from pathlib import Path
 
-from provision import ROOT, SESSION, CONFIG
+from provision import ACCOUNT, ROOT, SESSION, CONFIG
 
 # The runtime is ARM64 CPython 3.13, so dependencies are resolved for that target rather than
 # for this laptop. Keeping this in the deploy step means backend/requirements.txt is the only
@@ -14,16 +13,20 @@ PLATFORM = ('--python-platform', 'aarch64-manylinux2014', '--python-version', '3
 
 
 def sync_dependencies(package):
+    shutil.rmtree(package, ignore_errors=True)
+    package.mkdir(parents=True)
     subprocess.run(['uv', 'pip', 'install', '--quiet', '--target', str(package), *PLATFORM,
-                    '-r', str(ROOT / 'backend/requirements.txt')], check=True)
+                    '--only-binary=:all:', '-r', str(ROOT / 'backend/requirements.lock')], check=True)
 
 
 def main():
+    if SESSION.client('sts', config=CONFIG).get_caller_identity()['Account'] != ACCOUNT:
+        raise RuntimeError('Wrong AWS account; expected the authorised Onward account.')
     state_path = ROOT / 'infra/deployed.json'
     cfg = json.loads(state_path.read_text())
     package = ROOT / '.build/package'
     sync_dependencies(package)
-    for filename in ('main.py', 'services.py', 'planner.py', 'models.py', 'gateway_auth.py'):
+    for filename in ('main.py', 'services.py', 'planner.py', 'models.py', 'gateway_auth.py', 'conversation.py'):
         shutil.copy2(ROOT / 'backend' / filename, package / filename)
     shutil.copy2(state_path, package / 'deployed.json')
     artifact = ROOT / '.build/onward.zip'

@@ -145,7 +145,7 @@ The palette is warm and material: burgundy is the primary accent, supported by p
 - **Warm canvas (`bg`) and light paper (`paper`):** outer workspace and contained surfaces.
 - **Dark ink (`ink`), warm supporting text (`muted`) and tertiary stone (`subtle`):** primary reading, secondary explanation and event metadata.
 - **Fine sand rule (`line`) and inset stone (`chip`):** dividers, borders, message bubbles, code and grouped controls.
-- **Constraint green (`green`) and error red (`red`):** semantic status paired with explicit text. Online uses a separate brighter green pulse; it is a connection state rather than another brand accent.
+- **Constraint green (`green`) and error red (`red`):** semantic status paired with explicit text. Online uses a separate brighter green dot beside the readiness label.
 
 **The Solid Action Rule.** Send and Reveal cancellation use flat burgundy with light foregrounds and generous targets; keep metallic fills and decorative action shadows out.
 
@@ -188,7 +188,7 @@ Answers use 1.7 line height, the opening field 1.45, sent questions 1.6, hotel p
 
 ## Layout
 
-The application fills `100dvh`. The topbar, trip context, composer and playback dock frame independently scrolling transcript and trace regions. The preparation view is a separately scrolling page. The opening combines Alex's portrait, the LHR–LIS panorama, booked status, the headline “Tomorrow in Lisbon: a client meeting at 14:00”, the large request and the six-component rail. After the cancellation the headline becomes “Recover the journey around a fixed 14:00 meeting”. Headlines are full sentences or clauses, never clipped two-fragment slogans. After sending, the trip becomes a compact two-row grid and the composer contracts so the active explanation has more space.
+The application fills `100dvh`. The topbar, trip context, composer and playback dock frame independently scrolling transcript and trace regions. The preparation view is a separately scrolling page. The opening combines Alex's portrait, the LHR–LIS panorama, booked status, the headline “A meeting to make in Lisbon.”, the large request and the six-component rail. After cancellation the headline becomes “The flight changed. The meeting hasn’t.” A ruled strip makes the meeting deadline, complete budget and nearby hotel visible together. After sending, the trip becomes a compact two-row grid and the composer contracts so the active explanation has more space. Each answer carries the limits resolved for that request.
 
 | Width | Implemented layout |
 |---|---|
@@ -199,7 +199,7 @@ The application fills `100dvh`. The topbar, trip context, composer and playback 
 
 The composer, sent question and working content cap their measure at 72ch; sent questions also cap at 86% of their pane. Answer prose caps at 72ch and supporting paragraphs at 68ch. Desktop card and panel spacing uses the extracted 8–28px rhythm. The default opening panorama has a 260px minimum height, growing to 288px from 1500px; the portrait grows from 86px to 92px. Active desktop portraits compact to 48px, or 52px from 1500px.
 
-**The Laptop Budget.** 1728×940 is the reference laptop viewport, and vertical space is the scarce resource there. At that size the trip card is 297px, the opening composer 189px, the transcript 259px and the trace scroll 605px. Any addition to the framing chrome has to be paid for out of the transcript or the evidence rail, so measure both before growing either.
+**The Laptop Budget.** 1728×940 is the reference laptop viewport, and vertical space is the scarce resource there. The earlier layout measured a 297px trip card, 189px opening composer, 259px transcript and 605px trace scroll at that size; these are historical measurements, not verification of the revised goal strip. Keep framing compact and measure the transcript and evidence rail before growing either. Short desktop viewports reduce opening spacing; phone layouts stack the three goals.
 
 Preparation uses a 1120px container, expanding to 1480px on wide displays. Hotel comparisons generally use three columns. Live retrieval at 1001–1399px uses stacked horizontal cards with a 30% photograph, 17px 20px body padding, 15px prose and 14px metadata; this prevents narrow hotel bodies. At 1728px and wider, hotel body text is 16px and metadata 14px.
 
@@ -209,17 +209,17 @@ Paper cards use tonal separation and fine borders without action shadows. Photog
 
 **The Photographic Depth Rule.** Use gradients to protect text over photography; keep ordinary paper cards flat and reserve ambient shadows for overlays.
 
-Evidence enters over 340ms with `cubic-bezier(.16,1,.3,1)`, moving 7px upward while gaining opacity. The connected dot pulses over 2.4s. Reduced-motion preferences disable animation, transitions and smooth scrolling. Presentation pacing controls evidence disclosure; it does not represent service latency.
+Evidence enters over 340ms with `cubic-bezier(.16,1,.3,1)`, moving 7px upward while gaining opacity. Connection and step indicators stay static: a cached health result, recorded replay or paused display must not imply continuing AWS activity. Reduced-motion preferences disable animation, transitions and smooth scrolling. Presentation pacing controls evidence disclosure; it does not represent service latency.
 
 ### Reasoning steps
 
-While a run is live the transcript shows what the agent is actually doing, in the shape people now expect from a conversational assistant. Each semantic responsibility appears as a step the moment its first event arrives and stays on screen: a ruled row with a 22px mark, the responsibility name, the event's own one-line summary, and the official AWS marks of the services doing that step, inline at 18px. The active step carries an accent mark with a 1.5s pulse and accent-coloured title; resolved steps take a green check, a muted title and half-opacity service marks. Rows enter over 380ms on the house easing curve, 6px upward.
+As evidence is revealed, each semantic responsibility appears as a step and stays on screen: a ruled row with a 22px mark, the responsibility name, the event's own one-line summary, and the official AWS marks of the services doing that step, inline at 18px. The current step carries a static accent mark and accent-coloured title; resolved steps take a green check, a muted title and half-opacity service marks. Rows enter over 380ms on the house easing curve, 6px upward. Labels distinguish a live request, results ready to show and a recorded run.
 
 When the run finishes the whole stack collapses into one line — “6 of 6 semantic responsibilities resolved” — that expands on demand. The transcript keeps the narrative; the trace rail keeps the evidence.
 
 **The Working State Is Not Display Type Rule.** Step titles take `--type-layer` and summaries `--type-support`. The narrative size belongs to the opening headline, never to a status line: a 38px “Reading the request” outshouts the headline above it and the answer below it.
 
-**The Streaming Answer Rule.** Streamed text arrives in roughly word-sized reveals — 12 characters every 26ms — and patches the existing answer node instead of re-rendering the transcript, so selection, scroll position and the caret survive the stream. A 2px accent caret blinks on the final paragraph while the answer is pending and disappears the moment the run completes. The caret is a state indicator, not decoration: it must never appear on a finished or recorded answer.
+**The Answer Reveal Rule.** Tool evidence streams as work completes. The semantic path holds proposal prose until complete; reservation and connection explanations use checked facts. No-match and booking answers also come directly from checked results. A single frame loop reveals received text in complete words, absorbing uneven network chunks without rewriting the conversation on each update. Partial words wait for their remaining letters; citations and formatting stay intact. There is no blinking answer cursor. The composer stays in place, and follow-up and booking controls wait until display completion. Pause, resume, Stop and replay control the text buffer as well as the evidence. Reduced motion shows received text immediately. Presentation speed is separate from service latency.
 
 ## Shapes
 
@@ -245,7 +245,7 @@ The panoramic trip introduces the traveller and meeting, with the booked/cancell
 
 ### Solution briefing
 
-A reading surface, not an operating one. It shares the preparation page's scroll shell, 1120px container and reading measure, and adds five components: a numbered pipeline (28px ruled circles beside a title and one muted paragraph), a two-column comparison of the operations the code calls and the behaviours its rules produce, a tabbed AgentCore Memory showcase, a two-column service-role grid pairing each official AWS mark with what that service actually does here, and the architecture diagram. Operation rows name real runtime calls. Behaviour rows name branches of the deterministic planner, and the boundary line states that the model is called twice and never chooses a tool.
+A reading surface, not an operating one. It shares the preparation page's scroll shell, 1120px container and reading measure, and adds five components: a numbered pipeline (28px ruled circles beside a title and one muted paragraph), a two-column comparison of the operations the code calls and the behaviours its rules produce, a tabbed AgentCore Memory showcase, a two-column service-role grid pairing each official AWS mark with what that service actually does here, and the architecture diagram. Operation rows name real runtime calls. Behaviour rows name branches of the deterministic planner. The explanation distinguishes the model's interpretation, tool requests and prose from the application's enforced arguments, order and feasibility checks.
 
 The Memory showcase places the onboarding message, extracted strategy records and a cross-session answer beside the itinerary card that those preferences affect. The two panels stretch to one height; the tab panel fills the remaining space so the pair reads as a matched pair rather than a short card beside a tall one. Facts, Preferences, Session Summary and Episodic quote records returned by the deployed Memory, labelled as recorded on a date rather than live. Product price, schedule, walking time and stock remain attributed to Aurora, Neptune and versioned source policies.
 
@@ -293,7 +293,9 @@ The dock carries a **Model** select beside Pace, at `--type-controls`, populated
 
 ### Six semantic components and evidence
 
-Business context, Ontology, Disambiguation, Metrics, Relationships and Verified examples form a ruled list with numbered or checked circles. A seventh row, **Booking**, appears under a small divider, “+ one governed action”, only once a booking turn has produced an event; the heading above the rail still says six, because the seventh is an action, not a responsibility. A refused booking gets a burgundy cross in the circle and the state **Refused**. The rail footer carries the run’s OpenTelemetry trace id and a burgundy “View trace in CloudWatch” link at `--type-controls`; the footer is empty before the first run. Collapsed rows name service contributions; expansion reveals the question, explanation, actual service roles and input/output evidence. The open row stays sticky within the trace scroll region. Event cards use warm inset fills and readable DM Sans titles and prose. Evidence inspection opens a native dialog with wrapped monospace records. The six entries describe semantic responsibilities; they are not six separate databases.
+Set the goal, Connect names and places, Understand the words, Count every cost, Check the whole journey and Check the answer lead a ruled list with numbered or checked circles. Business context, Ontology, Disambiguation, Metrics, Relationships and Verified examples remain visible as technical subtitles. The six-part progress strip says “1 of 6 steps shown” and counts completed steps already revealed; it does not imply that AWS is still running. Presenter mode highlights **Next layer** and explains when results are ready to show.
+
+A booking turn shows its two actual checks: **Set the goal** and **Check permission to book**, with the heading **From an answer to a booking**. Its footer reports the booking outcome and links back to the earlier trip's six checks; it never presents booking as a partly completed six-step search. A refused booking gets a burgundy cross in the circle and the state **Refused**. Confirmed bookings refresh the flight availability control; replay announces a recorded confirmation and leaves current inventory unchanged. The rail footer carries the run’s OpenTelemetry trace id and a burgundy “View trace in CloudWatch” link at `--type-controls`; the footer is empty before the first run. Expansion reveals the question, explanation, actual service roles and input/output evidence. The open row stays sticky within the trace scroll region. Event cards use warm inset fills and readable DM Sans titles and prose. Evidence inspection opens a native dialog with wrapped monospace records. The six entries describe semantic responsibilities; they are not six separate databases.
 
 ## Do's and Don'ts
 
